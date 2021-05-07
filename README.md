@@ -79,10 +79,10 @@ GyroPIDは、
 PIDは制御ルール「比例Proportional、積分Integral、微分Differential」の略称、
 LPFは積分器を模擬する「Low Pass Filter」の略称、HPFは微分器を模擬する「High Pass Filter」の略称です。
 
-つまりジャイロは、R/C送信機からのステアリング指示値"ch1_in"を「ステアリング角度"ch1_out"の目標」ではなく「車体ヨーレート"omega"の目標」と解釈します。
-このジャイロが期待通りに車体ヨーレートを制御できた場合、
-グリップ走行時のニュートラルに近い回頭性、ドリフト走行時のヨーレートの安定性が高まるので、
-理屈の上ではR/Cカーが操縦しやすくなると思います（笑）。
+ジャイロは、R/C送信機からのステアリング指示値"ch1_in"を「ステアリング角度"ch1_out"の目標」ではなく「車体ヨーレート"omega"の目標」と解釈します。
+ジャイロが期待通りに車体ヨーレートを制御できた場合、
+グリップ走行時はニュートラルに近い回頭性、ドリフト走行時はヨーレートの安定性が高まります。
+つまりR/Cカーが操縦し易くなるかも？という理屈です（笑）。
 
 PID制御パラメータ（kg、kp、ki、kd）は、タイヤ、車体や路面の状況により調整すべきであり、ジャイロ画面で確認＆変更できます。
 テスト用R/Cカーの場合、PID制御の設定パラメータはKG=50、KP=60、KI=30、KD=10ぐらいの数値でドリフト走行が安定しました。
@@ -214,7 +214,7 @@ R/Cカー用ジャイロGyroPIDの開発にあたり、参考にした資料な�
 - [タミヤ](https://www.tamiya.com/japan/rc/index.html)
 - [R/Cカー練習場「元気っ子さん」](https://genkikkosan.com/)
 
-## ドリフト走行
+## ドリフト走行の理屈
 - [On the dynamics of automobile drifting](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.103.9227&rep=rep1&type=pdf)
 - [Analysis and control of high sideslip manoeuvres](https://www.tandfonline.com/doi/abs/10.1080/00423111003746140?journalCode=nvsd20)
 - [Stabilization of steady-state drifting for a RWD vehicle](http://dcsl.gatech.edu/papers/avec10.pdf)
