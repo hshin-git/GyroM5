@@ -3,21 +3,21 @@
 ---
 
 - GyroM5は、RCカー用ジャイロをM5StickC開発ボードで自作するためのOSS（オープンソースソフトウェア）です。
-- M5StickCは、ヨーレート計測用IMU、サーボ制御用ハードウェアPWM、パラメータ調整用LCDを備えており、RCカー用ジャイロに最適です。
+- M5StickCは、ヨーレート計測用IMU、サーボ制御用ハードウェアPWM、パラメータ調整用LCDを備えており、RCカー用ジャイロの開発に最適です。
 - M5StickCは、スケッチGyroM5.inoを転送してRCメカと接続するだけで、単体でRCカー用ジャイロGyroM5として機能します。
 
 ![ラジコン画像](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
 
 # DEMO
-GyroM5搭載のタミヤ製RCカー（シャーシはSU-01、RCメカはファインスペック）がドリフト走行する動画です。
+自作ジャイロGyroM5搭載のタミヤ製RCカー（シャーシはSU-01、RCメカはファインスペック）がドリフト走行する動画です。
 
 https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-9f59-ec6aaef0b9b0.mp4
 
 
 # Features
 
-GyroM5は、機能の面でハイエンドのジャイロ製品と同等かそれ以上？の特徴を備えています。
+GyroM5は、機能面でハイエンドのジャイロ製品と同等かそれ以上？の特徴を備えています。
 下記"PID"は、汎用性の高い制御アルゴリズムの略称「PID:比例Proportional、積分Integral、微分Differential」です。
 
 - PID自動制御 <br>車体ヨーレート（回頭角速度）を目標に操舵角をリアルタイム制御します。
