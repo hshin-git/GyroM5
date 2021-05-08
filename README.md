@@ -16,7 +16,7 @@ https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-
 
 # Features
 
-GyroM5は、機能面でハイエンドのジャイロ製品と同等かそれ以上の特徴を備えています。
+GyroM5は、機能の面で市販ジャイロのハイエンド製品に迫るユニークな特徴を備えています。
 キーワード"PID"は、汎用性の高い制御アルゴリズムの略称「PID:比例Proportional、積分Integral、微分Differential」です。
 
 - PID自動制御 <br>車体ヨーレート（回頭角速度）を目標に操舵角をリアルタイム制御します。
