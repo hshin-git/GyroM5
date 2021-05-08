@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////
 // M5StickC project:
-//   Steering Assist Gyroscope for Radio Control car 
+//   Steering Assist Gyroscope for Radio Control Car 
 // PID control law:
 //   error = ch1_in - Kg*yaw_rate
 //   ch1_out = Kp*( error + Ki*LPF(error) + Kd*HPF(error) )
