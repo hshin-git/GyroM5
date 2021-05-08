@@ -9,7 +9,7 @@
 
 ---
 
-# Demonstration
+# DEMO
 自作ジャイロGyroM5搭載のタミヤ純製RCカー（SU-01シャーシとファインスペック）がRWDドリフト走行する様子です。
 
 https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-9f59-ec6aaef0b9b0.mp4
@@ -30,7 +30,7 @@ GyroM5は、機能面で市販ジャイロのハイエンド製品に迫るユ�
 キーワード"PID"は、汎用性の高いフィードバック制御アルゴリズムの略称「PID:比例Proportional動作、積分Integral動作、微分Differential動作」です。
 
 
-# Usage and Installation
+# Usage/Installation
 GyroM5の使い方（本体準備、初期設定から通常利用の流れ）を概説します。
 RCメカとの接続方法、M5StickCの起動方法、PID制御パラメータの解釈は後半を参照ください。
 
@@ -62,9 +62,9 @@ RCメカとの接続方法、M5StickCの起動方法、PID制御パラメータ�
 GyroM5は、汎用的なフィードバック制御アルゴリズムのPID制御を用いています。
 PID制御における制御量、目標値および操作量とRCカーの関係は以下のとおりです。
 
-- 制御量: y = kg*wz = 車体ヨーレート（回頭角速度）
-- 目標値: r = ch1_in = 受信機からのCH1入力
-- 操作量: u = ch1_out = サーボへのCH1出力
+- 制御量: y = kg*wz = RCカー回頭角速度（ヨーレート）
+- 目標値: r = ch1_in = RC受信機からのCH1入力
+- 操作量: u = ch1_out = RCサーボへのCH1出力
 
 つまり受信機からのCH1入力を車体ヨーレートの目標値だと解釈して、
 両者の偏差をゼロに近づけるフィードバック制御により、サーボへのCH1出力を自動調整します。
