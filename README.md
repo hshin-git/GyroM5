@@ -66,9 +66,9 @@ GyroM5のチューニング参考情報として、制御アルゴリズムを�
 ### 制御アルゴリズム
 GyroM5は、汎用的なフィードバック制御アルゴリズムのPID制御を利用します。
 
-![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/PID.svg/800px-PID.svg.png)
+![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PID_en.svg/800px-PID_en.svg.png)
 
-PID制御における目標値、出力値および操作量とRCカー（プラント/プロセス）の関係は以下のとおりです。
+PID制御における目標値、出力値および操作量とRCカー（Plant/Process）の関係は以下のとおりです。
 
 - 目標値: r = ch1_in = RC受信機からのCH1入力
 - 出力値: y = kg*wz = RCカーの車体ヨーレート
