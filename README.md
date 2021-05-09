@@ -30,6 +30,15 @@ GyroM5は、機能面でハイエンド製品に迫るユニークな特徴を�
 
 キーワード"PID"は、汎用的なフィードバック制御アルゴリズムの略称「PID:比例Proportional、積分Integral、微分Differential」です。
 
+# Requirement
+GyroM5の利用に必要なハードウェア類を列挙します。
+
+- 標準的なRCカー　<br>標準的なRCメカを搭載して、受信機とサーボを3線ケーブルで接続するRCカーです
+- 標準的なパソコン <br>開発環境ArduinoIDEをインストールでき、USBインターフェイスを備えるPCです
+- M5StickC開発ボード <br>ネット通販などで購入可能です（注意：M5StickC Plusではありません）
+- ワイヤハーネス部品 <br>サーボ延長ケーブルを1本、オス型ピンヘッダを1個（8ピン以上）使います
+- ハンダ付け機材 <br>ワイヤハーネスの組み立てに必要です
+
 
 # Usage
 GyroM5の使い方（本体準備、初期設定から通常利用の流れ）を概説します。
@@ -56,7 +65,7 @@ GyroM5の使い方（本体準備、初期設定から通常利用の流れ）�
 
 
 ---
-# Notes
+# Note
 GyroM5の詳しい解説を記します。
 
 ## 接続方法
@@ -236,7 +245,7 @@ RCカー好きの人なら自作ジャイロの操縦性を楽しみつつ、プ
 
 ---
 
-# References
+# Reference
 
 RCカー用ジャイロGyroM5の開発にあたり、参考にした資料などを列挙します。
 「元気っ子さん」は、作者がGyroM5搭載カーの試験走行、ヨコモYD-2レンタカーの体験走行等でお世話になっているラジコン屋さんです。
@@ -254,6 +263,7 @@ RCカー用ジャイロGyroM5の開発にあたり、参考にした資料など
 - [Stabilization of steady-state drifting for a RWD vehicle](http://dcsl.gatech.edu/papers/avec10.pdf)
 
 ## ソフトウェア関連
+- [M5StickC Library](https://github.com/m5stack/M5StickC)
 - [M5StickC非公式日本語リファレンス](https://lang-ship.com/reference/unofficial/M5StickC/)
 - [M5Stack公式ドキュメント](https://github.com/m5stack/m5-docs/blob/master/docs/ja/README_ja.md)
 - [Arduino IDE](https://www.arduino.cc/en/software)
