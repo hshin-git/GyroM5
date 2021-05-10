@@ -33,9 +33,9 @@ GyroM5は、機能面でハイエンド製品に迫るユニークな特徴を�
 # Requirement
 GyroM5の利用に必要なハードウェアを列挙します。
 
-- ホビー用RCカー　<br>標準的なRCメカを搭載して、受信機と操舵用サーボを3線ケーブルで接続するRCカーです。
-- 標準的パソコン <br>開発環境ArduinoIDEをインストールでき、USBインターフェイスを備えるパソコンです。
-- M5StickC <br>LCD解像度の高い"M5StickC Plus"ではありません。
+- ホビー用RCカー　<br>標準的RCメカを搭載して、受信機とステアリング用サーボを3線（-+S）で接続するRCカーです。
+- 標準的パソコン <br>ArduinoIDEをインストールでき、USBインターフェイスを備えるプログラム書き込み用パソコンです。
+- M5StickC <br>LCD解像度の低い方です。高い方の"M5StickC Plus"ではありません。
 - ワイヤハーネス部品 <br>サーボ延長ケーブルを1本、オス型ピンヘッダを1個（8ピン以上）使います。
 - ハンダ付け機材 <br>ワイヤハーネスの組み立てに使います。
 
@@ -47,9 +47,9 @@ GyroM5の使い方（本体準備、初期設定から通常利用の流れ）�
 詳しいRCメカの接続方法、M5StickCの起動方法、制御パラメータの調整方法は後半を参照ください。
 
 ## 本体準備
-1. 手持ちのコンピュータにArduinoIDE（開発環境）をインストールする
+1. 手持ちのパソコンにArduinoIDE（開発環境）をインストールする
 2. ArduinoIDEの開発ボード設定をESP32/M5StickC向けに変更する
-3. コンピュータとM5StickC開発ボードをUSBケーブルで接続する
+3. パソコンとM5StickC開発ボードをUSBケーブルで接続する
 4. スケッチGyroM5.inoをArduinoIDE経由でM5StickCへ転送する
 6. GyroM5（M5StickC）をRCカーに固定（本体LCD画面が鉛直上向き）してRCメカと接続する
 
@@ -253,8 +253,8 @@ RCカー用ジャイロGyroM5の開発にあたり、参考にした資料など
 「元気っ子さん」は、作者がGyroM5搭載カーの試験走行、ヨコモYD-2レンタカーの体験走行等でお世話になっているラジコン屋さんです。
 
 ## ホビー用RCカー関連
-- [ヨコモ](https://teamyokomo.com/)
-- [タミヤ](https://www.tamiya.com/japan/rc/index.html)
+- [ヨコモYD-2](https://teamyokomo.com/product/dp-yd2/)
+- [タミヤSU-01](https://www.tamiya.com/japan/products/product_info_ex.html?genre_item=7101)
 - [RCカー練習場「元気っ子さん」](https://genkikkosan.com/)
 
 ## ドリフト走行の理屈
