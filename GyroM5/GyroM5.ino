@@ -1,11 +1,11 @@
 //////////////////////////////////////////////////
 // M5StickC Project:
-//   Steering Assisting Unit for RC Car or Boat
+//   Steering Assisting Unit for RC Car
 // PID Controler:
 //   error = ch1_in - Kg*yaw_rate
 //   ch1_out = Kp*( error + Ki*LPF(error) + Kd*HPF(error) )
 // URL:
-//   https://github.com/hshin-git/NeoGyroM5
+//   https://github.com/hshin-git/GyroM5
 //////////////////////////////////////////////////
 #include <M5StickC.h>
 
