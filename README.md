@@ -1,3 +1,5 @@
+[日本語] | [English](README-en.md)
+
 # GyroM5
 
 - GyroM5（じゃいろ・えむご）は、RCカー用ジャイロをM5StickCで自作するためのOSSです。
