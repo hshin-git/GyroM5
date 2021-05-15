@@ -1,7 +1,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5SticC to steering assit unit of RC car.
-- M5StickC has IMU to measure yaw rate, hardware PMW to command servo and LCD to adjust control parameters, is suited for the purpose.
+- M5StickC has IMU to measure yaw rate, hardware PMW to command servo and LCD to adjust control parameters, is suited for this purpose.
 - M5SitckC installed GyroM5.ino works as a gyro unit for RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
@@ -68,7 +68,7 @@ The outlines are below. The details are in next section.
 The detalis are below.
 
 ## Wiring
-Wiring GyroM5/M5StickC and RC receiver/servo is below.
+Wiring GyroM5/M5StickC with RC receiver/servo is in table below.
 
 |M5StickC |in/out |RC Resciver/Servo |
 |---- |---- |---- |
@@ -78,7 +78,7 @@ Wiring GyroM5/M5StickC and RC receiver/servo is below.
 |GND |in | Reciever minus|
 |5Vin |in | Reciever plus|
 
-An example of assembled wireharness is below.
+An example image of assembled wire harness is below.
 
 ![GyroWiring](https://user-images.githubusercontent.com/64751855/117226919-aee82c00-ae50-11eb-96f3-b1b861cb95c2.jpg)
 
@@ -119,6 +119,8 @@ GyroM5は、以下の5種類の画面状態を遷移します。状態遷移は�
 
 
 ## Tuning
+GyroM5's control algorithm is explained for tuning parameters.
+
 GyroM5チューニング時の参考情報として、制御アルゴリズムを解説します。
 
 ### Algorithm
@@ -240,9 +242,9 @@ RCカー好きの人なら自作ジャイロの操縦性を楽しみつつ、プ
 ## Hobby RC Car
 - [Yokomo YD-2](https://teamyokomo.com/product/dp-yd2/)
 - [Tamiya SU-01](https://www.tamiya.com/japan/products/product_info_ex.html?genre_item=7101)
-- [RC car field "Genkikko-san"](https://genkikkosan.com/)
+- [RC Car Shop "Genkikko-san"](https://genkikkosan.com/)
 
-## Automobile drifting
+## Automobile Drifting
 - [自動車の運動と制御](https://www.amazon.co.jp/dp/4501419202/)
 - [車両運動の安定性解析と制御への応用](https://www.tytlabs.com/japanese/review/rev321pdf/321_013ono.pdf)
 - [On the dynamics of automobile drifting](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.103.9227&rep=rep1&type=pdf)
@@ -258,6 +260,6 @@ RCカー好きの人なら自作ジャイロの操縦性を楽しみつつ、プ
 
 ## Hardware
 - [M5StickC device](https://www.switch-science.com/catalog/5517/)
-- [pin-header (male)](https://www.amazon.co.jp/dp/B012HY288S/)
+- [pin header (male)](https://www.amazon.co.jp/dp/B012HY288S/)
 - [servo extention cable](https://www.amazon.co.jp/dp/B00W9ST610/)
 
