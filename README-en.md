@@ -31,13 +31,13 @@ GyroM5 has unique functions.
 
 
 # Requirement
-These hardware is needed to use GyroM5. 
+These hardwares are needed to use GyroM5. 
 
 - Hobby RC car　<br> RC car equipped with standard and separated receiver/servo units.
 - Standard PC <br> PC installed with Arduino IDE and equipped with USB.
 - M5StickC <br> "M5StickC" not "M5StickC Plus" is required.
-- Parts for wire harness <br> one servo extention cable, and one pin headder (male 8-pin)
-- Soldering tool <br> for assembling wire harness
+- Parts for wire harness <br> One servo extention cable, and one pin headder (male 8-pin).
+- Soldering tool <br> For assembling wire harness.
 
 
 
@@ -70,7 +70,7 @@ The outlines are below. The details are in next section.
 The detalis are below.
 
 ## Wiring
-Wiring GyroM5/M5StickC with RC receiver/servo is in table below.
+Wiring GyroM5/M5StickC with RC receiver/servo is explained in table below.
 
 |M5StickC |in/out |RC Resciver/Servo |
 |---- |---- |---- |
@@ -100,7 +100,7 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 
 ## LCD monitor
 GyroM5 has five states below.
-One state transits to anothr state at botton [A],[B] or timeout event.
+One state transits to anothr state at botton [A]/[B] or timeout event.
 
 GyroM5は、以下の5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
 
