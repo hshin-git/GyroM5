@@ -1,3 +1,5 @@
+[日本語](README.md) | [English](README-en.md)
+
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5SticC to steering assit unit of RC car.
@@ -8,7 +10,7 @@
 
 
 ---
-[日本語](README.md)|English
+
 
 # DEMO
 This Tamiya RC car (SU-01) with GyroM5 is performing "RWD drifting".
