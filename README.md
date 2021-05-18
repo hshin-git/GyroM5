@@ -2,7 +2,7 @@
 
 # GyroM5
 
-- GyroM5（じゃいろ・えむご）は、RCカーのドリフト走行用ジャイロをM5StickCで自作するためのOSSです。
+- GyroM5（じゃいろ・えむご）は、RCカーのステアリング補助用ジャイロをM5StickCで自作するためのOSSです。
 - M5StickCは、ヨーレート計測用IMU、サーボ制御用ハードウェアPWM、パラメータ調整用LCDを備えており、ジャイロ自作に最適です。
 - M5StickCにスケッチ[GyroM5.ino](GyroM5/GyroM5.ino)を書き込んでRCメカと接続すると、自作ジャイロGyroM5として機能します。
 
