@@ -2,9 +2,9 @@
 
 # GyroM5
 
-- GyroM5（じゃいろ・えむご）は、RCカー用ジャイロをM5StickCで自作するためのOSSです。
+- GyroM5（じゃいろ・えむご）は、RCカーのドリフト走行用ジャイロをM5StickCで自作するためのOSSです。
 - M5StickCは、ヨーレート計測用IMU、サーボ制御用ハードウェアPWM、パラメータ調整用LCDを備えており、ジャイロ自作に最適です。
-- M5StickCにスケッチGyroM5.inoを書き込んでRCメカと接続すると、RCカー用ジャイロGyroM5として機能します。
+- M5StickCにスケッチ[GyroM5.ino](GyroM5/GyroM5.ino)を書き込んでRCメカと接続すると、自作ジャイロGyroM5として機能します。
 
 ![ラジコン画像](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -52,7 +52,7 @@ GyroM5の使い方（本体準備、初期設定から通常利用の流れ）�
 1. 手持ちのパソコンにArduinoIDE（開発環境）をインストールする
 2. ArduinoIDEの開発ボード設定をESP32/M5StickC向けに変更する
 3. パソコンとM5StickC開発ボードをUSBケーブルで接続する
-4. スケッチGyroM5.inoをArduinoIDE経由でM5StickCへ書き込む
+4. スケッチ[GyroM5.ino](GyroM5/GyroM5.ino)をArduinoIDE経由でM5StickCへ書き込む
 6. GyroM5（M5StickC）をRCカーに固定（LCD画面が上向き）してRCメカと接続する
 
 ## 初期設定
