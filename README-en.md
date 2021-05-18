@@ -2,9 +2,9 @@
 
 # GyroM5
 
-- GyroM5 is an OSS for turning your M5SticC to steering assit unit of RC car.
-- M5StickC has IMU to measure yaw rate, hardware PMW to command servo and LCD to adjust control parameters, is suited for this purpose.
-- M5SitckC installed GyroM5.ino works as a gyro unit for RC car.
+- GyroM5 is an OSS for turning your M5SticC into steering assit gyro of RC car.
+- M5StickC has IMU to measure yaw rate, hardware PMW to control servo and LCD to tune parameters, is suited for this purpose.
+- M5SitckC installed GyroM5.ino works as a steerin assit gyro for RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -19,7 +19,7 @@ https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-
 
 
 # Features
-GyroM5 has unique functions.
+GyroM5 has unique features.
 
 - Feedback control <br> Auto steering to follow yaw rate by PID control
 - Parameter setting <br> Setting PID control parameters by CH1 signal
@@ -31,18 +31,18 @@ GyroM5 has unique functions.
 
 
 # Requirement
-These hardwares are needed to use GyroM5. 
+These hardwares are required for GyroM5. 
 
 - Hobby RC car　<br> RC car equipped with standard and separated receiver/servo units.
 - Standard PC <br> PC installed with Arduino IDE and equipped with USB.
 - M5StickC <br> "M5StickC" not "M5StickC Plus" is required.
-- Parts for wire harness <br> One servo extention cable, and one pin headder (male 8-pin).
+- Parts for wire harness <br> One servo extention cable, and one pin headder (8-pin male).
 - Soldering tool <br> For assembling wire harness.
 
 
 
 # Usage
-The outlines are below. The details are in next section.
+The outline of usage is as follows. The detail is in next section.
 
 
 ## Setup hardware
@@ -67,10 +67,10 @@ The outlines are below. The details are in next section.
 
 ---
 # Note
-The detalis are below.
+The detali is as follows.
 
 ## Wiring
-Wiring GyroM5/M5StickC with RC receiver/servo is explained in table below.
+Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below.
 
 |M5StickC |in/out |RC Resciver/Servo |
 |---- |---- |---- |
@@ -80,13 +80,13 @@ Wiring GyroM5/M5StickC with RC receiver/servo is explained in table below.
 |GND |in | Reciever minus|
 |5Vin |in | Reciever plus|
 
-An example image of assembled wire harness is below.
+An example image of assembled wire harness is as follows.
 
 ![GyroWiring](https://user-images.githubusercontent.com/64751855/117226919-aee82c00-ae50-11eb-96f3-b1b861cb95c2.jpg)
 
 Caution:
-Signal levels in M5StickC (3.3V) and RC units (5.0v or more) are generally diferent.
-My RC units use 5.0-6.0v and work with directly connected M5StickC in no trouble. 
+Signal levels in M5StickC (3.3v) and RC units (5.0v or more) are generally different.
+My RC units use 5.0-6.0v and work no trouble with directly connected M5StickC. 
 But higher volotage (over 6.0v) RC units may damage your M5StickC.
 
 ![GyroInstall](https://user-images.githubusercontent.com/64751855/117384355-b75a6880-af1d-11eb-88ad-850f1de2ef77.jpg)
@@ -102,39 +102,36 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 GyroM5 has five states below.
 One state transits to anothr state at botton [A]/[B] or timeout event.
 
-GyroM5は、以下の5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
-
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117535959-70f72d80-b033-11eb-8e9c-6c60c3ccc51d.png)
 
-- 「制御画面」がホーム状態となり、この状態からボタン[A]で「設定画面」へ、ボタン[B]で「CH3選択」へ遷移します。
-- 他の状態の場合、ボタン操作が画面に表示してあるか、無操作のタイムアウトでホーム状態「制御画面」へ戻ります。
-- パラメータ設定は、送信機からステアリングCH1を操作して数値を与えて、ボタン[A]で保存（ボタン[B]で取消）します。
-- 起動直後の「CH3選択」は、PIDパラメータ表の参照が有効で、CH3ゲイン指定が無効です。
+- State "Operating" is the home, transits to "Setting" by [A] and transits to "CH3 selecting" by [B].
+- State other than "Operating" accepts some operations or returns to "Operating" by timeout.
+- In "Gain setting", send integer value by CH1 signal, save the desired value by [A] or cancel by [B]. 
+- Remote gain tuning by CH3 is initially disabled. 
 
-|画面状態|遷移条件|画面解説|
+|state|transition|descripition|
 |----|----|----|
-|起動画面|RC受信機の起動|ジャイロ起動後、RC受信機からPWM信号を受信するまで待機|
-|較正画面|タイムアウト|CH1ニュートラル位置、IMUバイアスのサンプリング（この間、送信機操作や車体振動がNG）|
-|制御画面|ボタン[A],[B]|PID制御状態（RC受信機入力、ジャイロ入力、サーボ制御量、パラメータなど）の表示|
-|設定画面|ボタン[A],[B]|PID制御パラメータ、操舵CH1エンドポイントの保存（電源オフ後も残る）|
-|CH3選択|ボタン[B]|CH3入力とPID制御パラメータの対応付けの選択|
+|Waiting |Start RC receiver |waits for PWM signal from RC receiver|
+|Calibrating |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
+|Operating |[A],[B] |displays RC signals, IMU inputs and PID gains|
+|GainSetting |[A],[B] |sets PID gains and CH1 end points|
+|CH3Setting |[B] |sets CH3 mode|
 
 
 ## Tuning
 GyroM5's control algorithm is explained for tuning parameters.
 
-GyroM5チューニング時の参考情報として、制御アルゴリズムを解説します。
 
 ### Algorithm
-GyroM5は、汎用的なフィードバック制御アルゴリズムのPID制御（下図はWikipediaから引用）を利用します。
+GyroM5 uses generic feedback control algorithm "PID control". 
 
 ![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PID_en.svg/800px-PID_en.svg.png)
 
-PID制御における目標値r、出力値yおよび操作量uとRCカー（Plant/Process）の関係は以下のとおりです。
+In GyroM5's PID control, the target value r, output value y and control value u is as follows.
 
-- 目標値: r = ch1_in = RC受信機からのCH1入力
-- 出力値: y = kg*wz = RCカーの車体ヨーレート
-- 操作量: u = ch1_out = RCサーボへのCH1出力
+- target: r = ch1_in = CH1 input from RC receiver
+- output: y = kg*wz = Yaw rate of RC car
+- control: u = ch1_out = CH1 output to RC servo
 
 つまりRC受信機（送信機）からのCH1入力rを車体ヨーレートyの目標値と解釈して、
 両者の偏差eをゼロに近づけるフィードバック制御により、サーボへのCH1出力uを自動調整します。
