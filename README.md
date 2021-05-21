@@ -86,16 +86,16 @@ GyroM5利用時のM5StickCのGPIO端子とRCメカ（受信機、サーボ）端
 
 ワイヤハーネス（接続ケーブル）は、CH1入出力用にRCサーボ用のコネクタ付き延長ケーブル1本を中央で切断して、8ピンヘッダ（オス）とハンダ付けすれば完成です。
 
+![ワイヤハーネス](https://user-images.githubusercontent.com/64751855/119204830-865b6580-bad1-11eb-9ab6-f055a49f4d88.jpg)
+
 ゲイン調整用にCH3入力を利用する場合、信号線（単線）のみ受信機CH3とG32を接続すれば機能します。
 なおCH3をジャイロに接続しない場合、ジャイロはPID制御の静的なパラメータ表のみ参照します。
 
-![ジャイロ配線](https://user-images.githubusercontent.com/64751855/117226919-aee82c00-ae50-11eb-96f3-b1b861cb95c2.jpg)
+![ジャイロ搭載](https://user-images.githubusercontent.com/64751855/117384355-b75a6880-af1d-11eb-88ad-850f1de2ef77.jpg)
 
 信号の電圧レベルに関しては、M5StickC側が3.3Vなのに対して、RCメカ側が通常5.0V以上と高くなる点に十分ご注意ください。
 テスト環境（タミヤ製TRE-01、HobbyWing製QuicRUN-1060）では、直結で問題なく動いていますが、許容範囲内でも保証範囲外と思います。
 たとえばRCメカ側の電圧レベルが6Vを超える場合、レベルコンバータを省略するとM5StickCが破損（不可逆に故障）する恐れがあります。
-
-![ジャイロ搭載](https://user-images.githubusercontent.com/64751855/117384355-b75a6880-af1d-11eb-88ad-850f1de2ef77.jpg)
 
 
 ## 起動方法
