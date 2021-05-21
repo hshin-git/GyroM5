@@ -26,9 +26,12 @@ const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
 const int RANGE_MAX = 100;
 // GPIO pins
-const int CH1_IN = 0;
+//const int CH1_IN = 0;
+//const int CH3_IN = 36;
+//const int CH1_OUT = 26;
+const int CH1_IN = 26;
 const int CH3_IN = 36;
-const int CH1_OUT = 26;
+const int CH1_OUT = 0;
 
 
 //////////////////////////////////////////////////
