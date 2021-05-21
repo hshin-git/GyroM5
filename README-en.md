@@ -133,35 +133,32 @@ In GyroM5's PID control, the target value r, output value y and control value u 
 - output: y = kg*wz = Yaw rate of RC car
 - control: u = ch1_out = CH1 output to RC servo
 
-つまりRC受信機（送信機）からのCH1入力rを車体ヨーレートyの目標値と解釈して、
-両者の偏差eをゼロに近づけるフィードバック制御により、サーボへのCH1出力uを自動調整します。
+GyroM5 attempts to minimize error by adjusting control value u.
 
 - error: e = r - y = ch1_in - Kg*wz
 - control: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
 
-LPFは積分演算を模擬する「Low Pass Filter」の略称、HPFは微分演算を模擬する「High Pass Filter」の略称です。
-
-フィードバック制御の結果、グリップ走行時はニュートラルステアに近い回頭性、ドリフト走行時はヨーレートの安定性を期待できます。
+LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is used for derivative operator.
 
 
 ### Parameters
 PID制御のパラメータ（Kg、Kp、Ki、Kd）は、走行コンディションにより調整すべきであり、LCD画面で確認＆変更できます。
 PID制御の設定値（大文字）は、数値を-100〜100に規格化しており、PID制御の計算値（小文字）との関係は以下の通りです。
 
-- 角速度"wz"は（ラジアン/秒）単位: <br>慣性センサ（IMU）計測値をセンサ感度に応じて物理量へ変換した数値です。
-- 入出力"ch1"は16ビット数（0〜64k）: <br>PWMパルス幅（0ms〜20ms=1000ms/50Hz）を示す16ビット数（0〜2^16-1）です。
-- 測定ゲイン: Kg = KG/0.5 <br>大きくするとヨーレートに敏感となり、ステアリング量に対するヨーレートは小さくなります。
-- 比例ゲイン: Kp = KP/50.0 <br>大きくすると目標値に早く近づきますが、大きすぎるとハンチングします。
-- 積分ゲイン: Ki = KI/50.0 <br>大きくすると目標値に近づくのが遅れますが、最終的な偏差を減らせます。
-- 微分ゲイン: Kd = KD/50.0 <br>大きくすると目標値により早く近づきますが、大きすぎるとハンチングします。
+- Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
+- Input/output "ch1" is in 16bits (0〜64k): <br> Pulse width (0〜20ms=1000ms/50Hz) in 16bit (0〜2^16-1) integer.
+- Observation Gain: Kg = KG/0.5 <br> Larger Kg becomes, smaller yaw rate per steering becomes.
+- Proportional Gain: Kp = KP/50.0 <br> Larger Kp becomes, more fastly error decreases but may vibrate.
+- Integral Gain: Ki = KI/50.0 <br> Larger Ki becomes, more slowly error decreases, and smaller final error is.
+- Derivative Gain: Kd = KD/50.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
 
-テスト用RCカーの場合、設定値「KG=50、KP=60、KI=30、KD=10」程度でドリフト走行できました。
-なお特別な設定値「KG=KI=KD=0、KP=50」は、制御なし「入力を出力へスルー：u=r」と同じです。
-ステアリング用サーボを逆転モードで使う場合、ゲインKGをマイナスにすれば対応可能と思います。
+Recommended initial setting is parameters "KG=50, KP=60, KI=30, KD=10".
+Special parameters "KG=KI=KD=0 and KP=50" is as same as "pass throw: u=r". 
+The plus/minus sign of KG is used for normal/reverse mode in servo.
 
 
-### Real-time
-GyroM5は、制御周波数が約50Hz、入出力処理が20ms以内のリアルタイム制御システムです。
+### Realtime
+GyroM5 is approximatly realtime control system, and its control frequency (cycle) is 50Hz (20ms).
 
 - 「約50Hz」の理由は、PWMパルス幅計測の標準関数pulseIn(...)がブロックするので、複数CH入力時に20msを超えるからです。
 - プログラム上、CH1を20ms間隔で入力する一方、CH3を500ms間隔で入力する方式で「約20ms（頻度1/25で時間超過）」を満たします。
