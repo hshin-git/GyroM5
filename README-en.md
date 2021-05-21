@@ -82,7 +82,7 @@ Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below
 
 An example image of assembled wire harness is as follows.
 
-![GyroWiring](https://user-images.githubusercontent.com/64751855/117226919-aee82c00-ae50-11eb-96f3-b1b861cb95c2.jpg)
+![WireHarness](https://user-images.githubusercontent.com/64751855/119204830-865b6580-bad1-11eb-9ab6-f055a49f4d88.jpg)
 
 Caution:
 Signal levels in M5StickC (3.3v) and RC units (5.0v or more) are generally different.
@@ -136,8 +136,8 @@ In GyroM5's PID control, the target value r, output value y and control value u 
 つまりRC受信機（送信機）からのCH1入力rを車体ヨーレートyの目標値と解釈して、
 両者の偏差eをゼロに近づけるフィードバック制御により、サーボへのCH1出力uを自動調整します。
 
-- 偏差: e = r - y = ch1_in - Kg*wz
-- 操作量: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
+- error: e = r - y = ch1_in - Kg*wz
+- control: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
 
 LPFは積分演算を模擬する「Low Pass Filter」の略称、HPFは微分演算を模擬する「High Pass Filter」の略称です。
 
