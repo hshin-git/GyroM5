@@ -74,9 +74,9 @@ Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below
 
 |M5StickC |in/out |RC Resciver/Servo |
 |---- |---- |---- |
-|G0  |in | Reciever CH1|
+|G26  |in | Reciever CH1|
 |G36 |in | Reciever CH3|
-|G26 |out | Servo CH1|
+|G0 |out | Servo CH1|
 |GND |in | Reciever minus|
 |5Vin |in | Reciever plus|
 
