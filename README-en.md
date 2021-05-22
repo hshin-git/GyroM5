@@ -98,12 +98,12 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 
 ## LCD monitor
 GyroM5 has five states below.
-One state transits to anothr state at botton [A]/[B] or timeout event.
+One state transits to anothr state at button [A]/[B] or timeout event.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117535959-70f72d80-b033-11eb-8e9c-6c60c3ccc51d.png)
 
 - State "Operating" is the home, transits to "Setting" by [A] and transits to "CH3 selecting" by [B].
-- State other than "Operating" accepts some operations or returns to "Operating" by timeout.
+- State other than "Operating" accepts A/B button or returns to "Operating" by timeout.
 - In "Gain setting", send integer value by CH1 signal, save the desired value by [A] or cancel by [B]. 
 - Remote gain tuning by CH3 is initially disabled. 
 
