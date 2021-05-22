@@ -2,9 +2,8 @@
 
 # GyroM5
 
-- GyroM5 is an OSS for turning your M5SticC into steering assit gyro of RC car.
-- M5StickC has IMU to measure yaw rate, hardware PMW to control servo and LCD to tune parameters, is suited for this purpose.
-- M5SitckC installed GyroM5.ino works as a steerin assit gyro for RC car.
+- GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
+- M5SitckC installed GyroM5.ino works as a steering assit gyro for your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -133,7 +132,7 @@ In GyroM5's PID control, the target value r, output value y and control value u 
 - output: y = kg*wz = Yaw rate of RC car
 - control: u = ch1_out = CH1 output to RC servo
 
-GyroM5 attempts to minimize error by adjusting control value u.
+GyroM5 attempts to minimize error value e by adjusting control value u.
 
 - error: e = r - y = ch1_in - Kg*wz
 - control: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
@@ -142,8 +141,8 @@ LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is 
 
 
 ### Parameters
-PID制御のパラメータ（Kg、Kp、Ki、Kd）は、走行コンディションにより調整すべきであり、LCD画面で確認＆変更できます。
-PID制御の設定値（大文字）は、数値を-100〜100に規格化しており、PID制御の計算値（小文字）との関係は以下の通りです。
+You can confirm/adjust PID gain parameters by LCD and buttons.
+PID gains are normalized from -100 to 100, PID gains (in lowercase) are related to PID gains (in uppercase) as follows.
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
 - Input/output "ch1" is in 16bits (0〜64k): <br> Pulse width (0〜20ms=1000ms/50Hz) in 16bit (0〜2^16-1) integer.
@@ -152,82 +151,71 @@ PID制御の設定値（大文字）は、数値を-100〜100に規格化して�
 - Integral Gain: Ki = KI/50.0 <br> Larger Ki becomes, more slowly error decreases, and smaller final error is.
 - Derivative Gain: Kd = KD/50.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
 
-Recommended initial setting is parameters "KG=50, KP=60, KI=30, KD=10".
+Recommended initial setting is gain parameters "KG=50, KP=60, KI=30, KD=10".
 Special parameters "KG=KI=KD=0 and KP=50" is as same as "pass throw: u=r". 
-The plus/minus sign of KG is used for normal/reverse mode in servo.
+The plus/minus sign of KG is used for normal/reverse operation in steering servo.
 
 
 ### Realtime
 GyroM5 is approximatly realtime control system, and its control frequency (cycle) is 50Hz (20ms).
 
-- 「約50Hz」の理由は、PWMパルス幅計測の標準関数pulseIn(...)がブロックするので、複数CH入力時に20msを超えるからです。
-- プログラム上、CH1を20ms間隔で入力する一方、CH3を500ms間隔で入力する方式で「約20ms（頻度1/25で時間超過）」を満たします。
+- GyroM5 inputs CH1 in every cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
+- Since function pluseIn(...) blocks to read PWM, inputing both CH1 and CH3 take over 20ms.
 
 
-## Test environment
-作者のようにSU-01シャーシでRWDドリフト走行を試みる人は少ないと思いますが、
-参考までにテスト用のRCカー、メカ及びジャイロ搭載例の写真と諸元を記します。
+## Testing
+My RC car for testing GyroM5 is as follows.
 
 ![UpperView](https://user-images.githubusercontent.com/64751855/117554986-370b4300-b096-11eb-9ef8-50a00980d9fc.jpg)
 
-|項目 |型番 |
+|item |model |
 |----|----|
-|シャーシ|タミヤ製SU-01|
-|ボディ|タミヤ製ジムニーウイリー（SJ30）|
-|タイヤ|TOPLINE製Mシャーシ用ドリフトタイヤ|
-|送信機|タミヤ製ファインスペック2.4GHz|
-|受信機|タミヤ製TRE-01|
-|アンプ|タミヤ製TRE-01|
-|サーボ|ヨコモ製S-007|
-|バッテリ|7.4V LiPo 1100mAh|
-|モータ|ノーマル370型DCモーター|
+|chassis |Tamiya SU-01|
+|body |Tamiya Jimmny Willy (SJ30) |
+|tire |TOPLINE drift tire|
+|RC TX |Tamiya fine spec 2.4GHz|
+|RC RX |Tamiya TRE-01|
+|RC ESC |Tamiya TRE-01|
+|RC servo |Yokomo S-007|
+|battery |7.4V LiPo 1100mAh|
+|motor | 370 type|
 
-ドリフト走行に関連する注意点を列挙します。
+Hints for "RWD drifting" are listed bellow.
 
 ![LowerView](https://user-images.githubusercontent.com/64751855/117554999-51ddb780-b096-11eb-81c1-7907ea12db07.jpg)
 
-- シャーシに関しては、ステアリング用ナックルとシャーシの干渉部分を削りステアリング角度を45度ぐらいまで増やしました。
-- サーボに関しては、ファインスペック付属のTSU-03だと制御が遅れてハンチングしたので、ある程度の高速なサーボが必要です。
-- モータに関しては、ノーマルだとLiPoバッテリと組み合わせないと、スピードが出たときにトルク不足でドリフト移行が難しいです。
-- タイヤに関しては、駆動系が非力なので、なるべく滑りやすいタイヤが良いです。
+- Larger steering angle is better for controlability.
+- Faster steering servo is also better.
+- Slippy tiers are easier to drift by low power motor.
+
 
 
 # Roadmap
+The following are some ideads for improving your GyroM5.
 
-RCカー用ジャイロ自作を通して、気付いた改良アイデアなどを列挙します。
-いずれ対応したいと思いますが、趣味で開発しているので、いつ対応できるか分かりません。
-ご自身で改良にチャレンジすれる際の参考になればと思います。
-
-- パラメータ設定のスマホ対応　<br>スマホのGUI画面からジャイロ設定（PIDゲイン等）を複数管理して変更可能とする。
-- パラメータ調整の完全自動化 <br>車体、路面やタイヤに応じたPIDゲインの最適化を強化学習などで完全自動化する。
-- スロットル制御のアシスト <br>ドリフト走行の安定化には、ステアリングとスロットルの同時制御が必要です。
-- 加速度センサの有効利用 <br>ヨーレートと水平加速度から車体スリップ角を推定してトラクション制御を高度化する。
-- ジャイロ固定方向の自動検出 <br>鉛直方向を起動時に自動検出して車体ヨーレート成分を決定する。
-- PWM入力方式の改良 <br>PWM入力にブロック方式の関数pulseIn(...)を廃止して割り込み方式へと変更する。
-- 外部電源との完全連動 <br>M5StickCの内蔵バッテリーを無効化して、RCアンプBECの給電のみでオン/オフ動作させる。
-- 走行データの記録分析 <br>走行データをSDカード等に記録して事後分析できるようにする（M5StickCからM5Stackへ変更？）。
-
-M5StickCは、WiFi/Bluetoothを備える点、外部GPIOが5本ある点、6軸IMUを備える点、割り込み処理できる点から、
-ほとんどの改良案はハードウェア的には実現可能と思いますので、あとはソフトウェアつまりアイデア次第だと思います。
+- Wireless setting GyroM5 by smartphone
+- Automatic tuning of PID gain parameters
+- Assiting not only steering but also throttlle 
+- Reading PWM input without blocking
+- Automatic detection of installed direction
+- Recording and analysis of driving data
 
 
 # Author
+The author bought a small RC car kit (Tamiya SU-01) for indoor playing under COVID-19.
+After purchasing, I watched the RC car YouTube channel and became interested in "RC drift car" that did not exist in my childhood.
+The "RC drift car" is already established as a genre of RC car,
+and the shortest course to play "RC drift car" is to get a dedicated products like Yokomo YD-2.
 
-作者は、コロナ禍で屋内遊びをさがす中、初代グラスホッパー（笑）以来めっちゃ久しぶりにRCカーキット（小型のタミヤSU-01シャーシ）を購入しました。
-購入後、RCカー系YouTubeチャンネルを見て、子ども時代に存在しなかったドリフト用RCカー（通称、ドリラジ）の動きに興味を持ちました。
-ツルツルのタイヤで横滑りさせながらRCカーを走らせるアレです。
-ドリフト用RCカーは、ジャンルとして確立しており、たとえばヨコモYD-2のように専用設計で完成度の高い製品が存在します。
-純粋にRCカーのドリフト走行を楽しみたければ、ドリフト専用のシャーシやジャイロ製品を入手するのが最短コースです。
+But in my case,
+I noticed the "RC drift car" after purchasing the small RC car kit,
+and I believed that any RC car can perform "stable drift" by high speed controll.
+So I tried to make steering assit gyro to stabilize RWD drifting for my small RC car.
 
-自分の場合、ドリラジの存在に気付いたのがRCカーキット購入後だったこと、
-どんなRCカーでも上手く制御できればドリフト走行（を安定化）可能と信じていたことから、
-タミヤ最安（実売価格≒4K円）のSU-01シャーシを自作ジャイロで制御してドリフト走行にチャレンジしました。
-やや回り道しましたが、ほぼノーマル（シャーシを削り舵角を増やすだけ）のSU-01シャーシでドリフト走行できました。
-
-RCカー用ジャイロの自作は、プログラムやパラメータの変更によりRCカーの走行特性を変えられるので楽しい開発でした。
-RCカー好きの人なら自作ジャイロの操縦性を楽しみつつ、プログラミングや制御アルゴリズムを習得する良い素材（STEM教育の素材）と思います。
-趣味でRCカーやプログラミングを楽しむ若い人が増えて欲しいとの願いから、開発したRCカー用ジャイロGyroM5のソースコードを公開します。
-この記事を参考に、部品を集めてGyroM5を再現する人、改造して「オレ専用ジャイロ」を開発する人、が出てくれば自分はハッピーです。
+I enjoyed making GyroM5,
+and I tought this may be a good material to learn programming and control algorithm while playing RC car.
+So I release the source code of my GyroM5 for expecting that someone can enjoy RC car and programming.
+I am happy if somebody could repoduce this GyroM5 or customize it by themselves.
 
 
 ---
