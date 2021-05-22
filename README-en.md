@@ -43,7 +43,6 @@ These hardwares are required for GyroM5.
 # Usage
 The outline of usage is as follows. The detail is in next section.
 
-
 ## Setup hardware
 1. Install Arduino IDE on your PC.
 2. Setup Arduino IDE for ESP/M5StickC.
@@ -110,11 +109,11 @@ One state transits to anothr state at botton [A]/[B] or timeout event.
 
 |state|transition|descripition|
 |----|----|----|
-|Waiting |Start RC receiver |waits for PWM signal from RC receiver|
+|Waiting |RC signal |waits for PWM signal from RC receiver|
 |Calibrating |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
 |Operating |[A],[B] |displays RC signals, IMU inputs and PID gains|
-|GainSetting |[A],[B] |sets PID gains and CH1 end points|
-|CH3Setting |[B] |sets CH3 mode|
+|SettingGain |[A],[B] |sets PID gains and CH1 end points|
+|SettingCH3 |[B] |binds CH3 to PID gains|
 
 
 ## Tuning
