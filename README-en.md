@@ -3,7 +3,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
-- M5SitckC installed GyroM5.ino works as a steering assit gyro for your RC car.
+- M5SitckC installed [GyroM5.ino](GyroM5/GyroM5.ino) stabilizes drifting of your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -223,14 +223,14 @@ I am happy if somebody could repoduce this GyroM5 or customize it by themselves.
 # Reference
 
 
-## Hobby RC Car
+## Hobby Radio Control Car
 - [Yokomo YD-2](https://teamyokomo.com/product/dp-yd2/)
 - [Tamiya SU-01](https://www.tamiya.com/japan/products/product_info_ex.html?genre_item=7101)
 - [RC Car Shop "Genkikko-san"](https://genkikkosan.com/)
 
 ## Automobile Drifting
-- [自動車の運動と制御](https://www.amazon.co.jp/dp/4501419202/)
-- [車両運動の安定性解析と制御への応用](https://www.tytlabs.com/japanese/review/rev321pdf/321_013ono.pdf)
+- [Automotive Vehicle Dynamics](https://www.amazon.co.jp/dp/4501419202/)
+- [Vehicle Running Stability Analysis and Spin Control](https://www.tytlabs.com/japanese/review/rev321pdf/321_013ono.pdf)
 - [On the dynamics of automobile drifting](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.103.9227&rep=rep1&type=pdf)
 - [Analysis and control of high sideslip manoeuvres](https://www.tandfonline.com/doi/abs/10.1080/00423111003746140?journalCode=nvsd20)
 - [Stabilization of steady-state drifting for a RWD vehicle](http://dcsl.gatech.edu/papers/avec10.pdf)
