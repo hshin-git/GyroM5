@@ -207,9 +207,9 @@ The "RC drift car" is already established as a genre of RC car,
 and the shortest course to play "RC drift car" is to get a dedicated products like Yokomo YD-2.
 
 But in my case,
-I noticed the "RC drift car" after purchasing the small RC car kit,
-and I believed that any RC car can perform "stable drift" by high speed controll.
-So I tried to make steering assit gyro to stabilize RWD drifting for my small RC car.
+I noticed the "RC drift car" after purchasing the kit,
+and I believed that any RC car can perform "stable drift driving" by high speed control.
+So I tried to make steering assit gyro to stabilize RWD drifting for my small car.
 
 I enjoyed making GyroM5,
 and I tought this may be a good material to learn programming and control algorithm while playing RC car.
