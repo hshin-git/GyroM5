@@ -41,7 +41,7 @@ These hardwares are required for GyroM5.
 
 
 # Usage
-The outline of usage is as follows. The detail is in next section.
+The outline of usage is as follows. The details are in next section.
 
 ## Setup hardware
 1. Install Arduino IDE on your PC.
@@ -65,12 +65,12 @@ The outline of usage is as follows. The detail is in next section.
 
 ---
 # Note
-The detali is as follows.
+The details are as follows.
 
 ## Wiring
 Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below.
 
-|M5StickC |in/out |RC Resciver/Servo |
+|M5StickC |in/out |RC units |
 |---- |---- |---- |
 |G26  |in | Reciever CH1|
 |G36 |in | Reciever CH3|
@@ -125,7 +125,8 @@ GyroM5 uses generic feedback control algorithm "PID control".
 
 ![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PID_en.svg/800px-PID_en.svg.png)
 
-In GyroM5's PID control, the target value r, output value y and control value u is as follows.
+In the PID control, the plant/process is RC car.
+The target value r, the output value y and the control value u are as follows.
 
 - target: r = ch1_in = CH1 input from RC receiver
 - output: y = kg*wz = Yaw rate of RC car
@@ -140,7 +141,7 @@ LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is 
 
 
 ### Parameters
-You can confirm/adjust PID gain parameters by LCD and buttons.
+You can confirm/adjust PID gain parameters by LCD, A/B buttons and CH1.
 PID gains are normalized from -100 to 100, PID gains (in lowercase) are related to PID gains (in uppercase) as follows.
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
@@ -156,10 +157,10 @@ The plus/minus sign of KG is used for normal/reverse operation in steering servo
 
 
 ### Realtime
-GyroM5 is approximatly realtime control system, and its control frequency (cycle) is 50Hz (20ms).
+GyroM5 is approximately realtime control system, and its control frequency (cycle) is 50Hz (20ms).
 
-- GyroM5 inputs CH1 in every cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
-- Since function pluseIn(...) blocks to read PWM, reading both CH1 and CH3 takes over 20ms.
+- GyroM5 inputs CH1 in every 20ms cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
+- Since function pluseIn(...) blocks to read PWM, sequential reading both CH1 and CH3 takes over 20ms.
 
 
 ## Testing
@@ -190,7 +191,7 @@ Hints for "RWD drifting" are listed bellow.
 
 
 # Roadmap
-The following are some ideads for improving your GyroM5.
+The followings are some ideads for improving your GyroM5.
 
 - Wireless setting GyroM5 by smartphone
 - Automatic tuning of PID gain parameters
@@ -209,10 +210,10 @@ and the shortest course to play "RC drift car" is to get dedicated products like
 But in my case,
 I noticed the "RC drift car" after purchasing the kit,
 and I believed that any RC car can perform "stable drift driving" by high speed control.
-So I tried to make steering assit gyro to stabilize RWD drift driving of my small car.
+So I tried to make steering assit gyro to stabilize RWD drift driving for my small car.
 
-I enjoyed making GyroM5,
-and I tought this may be a good material to learn programming and control algorithm while playing RC car.
+I enjoyed making this GyroM5,
+and I thought this may be a good material to learn programming and control algorithm while playing RC car.
 So I release the source code of GyroM5 for expecting that someone can enjoy RC car and programming.
 I am happy if somebody could repoduce GyroM5 or customize it by themselves.
 
