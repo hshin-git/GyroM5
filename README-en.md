@@ -185,7 +185,7 @@ Hints for "RWD drifting" are listed bellow.
 
 - Larger steering angle is better for controlability.
 - Faster steering servo is also better.
-- Slippy tiers are easier to drift by low power motor.
+- Slippy tires are easier to drift by low power motor.
 
 
 
@@ -204,17 +204,17 @@ The following are some ideads for improving your GyroM5.
 The author bought a small RC car kit (Tamiya SU-01) for indoor playing under COVID-19.
 After purchasing, I watched the RC car YouTube channel and became interested in "RC drift car" that did not exist in my childhood.
 The "RC drift car" is already established as a genre of RC car,
-and the shortest course to play "RC drift car" is to get a dedicated products like Yokomo YD-2.
+and the shortest course to play "RC drift car" is to get dedicated products like Yokomo YD-2.
 
 But in my case,
 I noticed the "RC drift car" after purchasing the kit,
 and I believed that any RC car can perform "stable drift driving" by high speed control.
-So I tried to make steering assit gyro to stabilize RWD drifting for my small car.
+So I tried to make steering assit gyro to stabilize RWD drift driving of my small car.
 
 I enjoyed making GyroM5,
 and I tought this may be a good material to learn programming and control algorithm while playing RC car.
-So I release the source code of my GyroM5 for expecting that someone can enjoy RC car and programming.
-I am happy if somebody could repoduce this GyroM5 or customize it by themselves.
+So I release the source code of GyroM5 for expecting that someone can enjoy RC car and programming.
+I am happy if somebody could repoduce GyroM5 or customize it by themselves.
 
 
 ---
