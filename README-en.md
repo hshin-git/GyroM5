@@ -3,7 +3,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
-- [GyroM5.ino](GyroM5/GyroM5.ino) installed M5SitckC stabilizes drift driving of your RC car.
+- Sketch [GyroM5.ino](GyroM5/GyroM5.ino) installed M5SitckC stabilizes drift driving of your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -159,7 +159,7 @@ The plus/minus sign of KG is used for normal/reverse operation in steering servo
 GyroM5 is approximatly realtime control system, and its control frequency (cycle) is 50Hz (20ms).
 
 - GyroM5 inputs CH1 in every cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
-- Since function pluseIn(...) blocks to read PWM, inputing both CH1 and CH3 take over 20ms.
+- Since function pluseIn(...) blocks to read PWM, reading both CH1 and CH3 takes over 20ms.
 
 
 ## Testing
@@ -194,7 +194,7 @@ The following are some ideads for improving your GyroM5.
 
 - Wireless setting GyroM5 by smartphone
 - Automatic tuning of PID gain parameters
-- Assiting not only steering but also throttlle 
+- Assiting not only steering but also throttle 
 - Reading PWM input without blocking
 - Automatic detection of installed direction
 - Recording and analysis of driving data
@@ -222,7 +222,7 @@ I am happy if somebody could repoduce this GyroM5 or customize it by themselves.
 # Reference
 
 
-## Hobby Radio Control Car
+## Radio Control Car
 - [Yokomo YD-2](https://teamyokomo.com/product/dp-yd2/)
 - [Tamiya SU-01](https://www.tamiya.com/japan/products/product_info_ex.html?genre_item=7101)
 - [RC Car Shop "Genkikko-san"](https://genkikkosan.com/)
