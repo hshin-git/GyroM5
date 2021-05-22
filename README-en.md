@@ -57,7 +57,7 @@ The outline of usage is as follows. The detail is in next section.
 4. Setup initial PID control gains (KG=50, KP=50, KI=30, KD=10).
 5. Run RC car and adjust PID control gains.
 
-## Ordinaly usage
+## Daily usage
 1. Turn on your GyroM5/M5StickC.
 2. Turn on your RC car.
 3. Run RC car and adjust PID control gains.
