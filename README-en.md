@@ -126,13 +126,13 @@ GyroM5 uses generic feedback control algorithm "PID control".
 ![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PID_en.svg/800px-PID_en.svg.png)
 
 In the PID control, the plant/process is RC car.
-The target value r, the output value y and the control value u are as follows.
+The target r, the output y and the control u are as follows.
 
 - target: r = ch1_in = CH1 input from RC receiver
 - output: y = kg*wz = Yaw rate of RC car
 - control: u = ch1_out = CH1 output to RC servo
 
-GyroM5 attempts to minimize error value e by adjusting control value u.
+GyroM5 attempts to minimize error value e by adjusting control variable u.
 
 - error: e = r - y = ch1_in - Kg*wz
 - control: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
