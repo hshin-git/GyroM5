@@ -214,7 +214,8 @@ So I tried to make steering assit gyro to stabilize RWD drift driving for my sma
 
 I enjoyed making this GyroM5,
 and I thought this may be a good material to learn programming and control algorithm while playing RC car.
-So I release the source code of GyroM5 for expecting that someone can enjoy RC car and programming.
+So I release the source code of GyroM5 for expecting that someone use this material for STEM education,
+or persuading your parents to buy hobby RC car.
 I am happy if somebody could repoduce GyroM5 or customize it by themselves.
 
 
