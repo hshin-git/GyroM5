@@ -90,7 +90,7 @@ But higher volotage (over 6.0v) RC units may damage your M5StickC.
 ![GyroInstall](https://user-images.githubusercontent.com/64751855/117384355-b75a6880-af1d-11eb-88ad-850f1de2ef77.jpg)
 
 
-## Turn On/off
+## Turning On/off
 M5Stick is known to have bugs in its power managment.
 Find hints for trouble-shooting with google search like keyword "m5stickc not turning on".
 
@@ -216,6 +216,7 @@ I enjoyed making this GyroM5,
 and I thought this may be a good material to learn programming and control algorithm while playing RC car.
 So I release the source code of GyroM5 for expecting that someone use this material for STEM education,
 or persuading your parents to buy hobby RC car.
+
 I am happy if somebody could repoduce GyroM5 or customize it by themselves.
 
 
