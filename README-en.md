@@ -43,14 +43,14 @@ These hardwares are required for GyroM5.
 # Usage
 The outline of usage is as follows. The details are in next section.
 
-## Setup hardware
+## Hardware setting
 1. Install Arduino IDE on your PC.
 2. Setup Arduino IDE for ESP/M5StickC.
 3. Connect your PC and M5StickC with USB.
 4. Install GyroM5.ino on your M5StickC.
 5. Install GyroM5/M5StickC on your RC car with LCD up.
 
-## Initlal setup
+## Software setting
 1. Turn on your GyroM5/M5StickC.
 2. Turn on your RC car.
 3. Setup steering end point.
@@ -96,7 +96,7 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 
 
 
-## LCD monitor
+## Monitoring LCD
 GyroM5 has five states below.
 One state transits to anothr state at button [A]/[B] or timeout event.
 
