@@ -20,7 +20,7 @@ https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-
 # Features
 GyroM5 has unique features.
 
-- Feedback control <br> Auto steering to follow yaw rate by PID control
+- Feedback control <br> Auto steering to follow target yaw rate by PID control
 - Parameter setting <br> Setting PID control parameters by CH1 signal
 - Remote gain tuning <br> Tuning a PID control parameter by CH3 signal
 - End point setting <br> Setting steering end point by CH1 signal
@@ -47,7 +47,7 @@ The outline of usage is as follows. The details are in next section.
 1. Install Arduino IDE on your PC.
 2. Setup Arduino IDE for ESP/M5StickC.
 3. Connect your PC and M5StickC with USB.
-4. Install GyroM5.ino on your M5StickC.
+4. Install sketch [GyroM5.ino](GyroM5/GyroM5.ino) on your M5StickC.
 5. Install GyroM5/M5StickC on your RC car with LCD up.
 
 ## Software setting
@@ -129,7 +129,7 @@ In the PID control, the plant/process is RC car.
 The target r, the output y and the control u are as follows.
 
 - target: r = ch1_in = CH1 input from RC receiver
-- output: y = kg*wz = Yaw rate of RC car
+- output: y = Kg*wz = Yaw rate of RC car
 - control: u = ch1_out = CH1 output to RC servo
 
 GyroM5 attempts to minimize error value e by adjusting control variable u.
@@ -141,8 +141,8 @@ LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is 
 
 
 ### Parameters
-You can confirm/adjust PID gain parameters by LCD, A/B buttons and CH1.
-PID gains are normalized from -100 to 100, PID gains (in lowercase) are related to PID gains (in uppercase) as follows.
+You can confirm/adjust the PID gain parameters by LCD, A/B buttons and CH1.
+The integer gains (in uppercase) are normalized from -100 to 100, and are related to the real gains (in lowercase) as follows.
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
 - Input/output "ch1" is in 16bits (0〜64k): <br> Pulse width (0〜20ms=1000ms/50Hz) in 16bit (0〜2^16-1) integer.
@@ -151,8 +151,8 @@ PID gains are normalized from -100 to 100, PID gains (in lowercase) are related 
 - Integral Gain: Ki = KI/50.0 <br> Larger Ki becomes, more slowly error decreases, and smaller final error is.
 - Derivative Gain: Kd = KD/50.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
 
-Recommended initial setting is gain parameters "KG=50, KP=60, KI=30, KD=10".
-Special parameters "KG=KI=KD=0 and KP=50" is as same as "pass throw: u=r". 
+Initial parameters are recommended to set the integer gains "KG=50, KP=60, KI=30, KD=10".
+Special parameters "KG=KI=KD=0 and KP=50" are as same as the setting "pass throw: u=r". 
 The plus/minus sign of KG is used for normal/reverse operation in steering servo.
 
 
