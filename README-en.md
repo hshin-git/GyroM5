@@ -219,7 +219,7 @@ or persuading your parents to buy hobby RC car.
 
 I am happy if somebody could reproduce GyroM5 or customize it by themselves.
 
-Enjoy! (^_^)
+(^_^)
 
 ---
 
