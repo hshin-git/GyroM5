@@ -3,7 +3,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
-- Sketch [GyroM5.ino](GyroM5/GyroM5.ino) installed M5SitckC stabilizes drift driving of your RC car.
+- Sketch [GyroM5.ino](GyroM5/GyroM5.ino) installed M5SitckC can stabilize drift driving of your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
