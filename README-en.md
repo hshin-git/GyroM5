@@ -141,7 +141,7 @@ LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is 
 
 
 ### Parameters
-You can confirm/adjust the PID gain parameters by LCD, A/B buttons and CH1.
+You can confirm/adjust the PID integer gains by LCD, A/B buttons and CH1.
 The integer gains (in uppercase) are normalized from -100 to 100, and are related to the real gains (in lowercase) as follows.
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
