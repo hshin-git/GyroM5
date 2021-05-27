@@ -1,11 +1,9 @@
 ---
 layout: default
-title: ドリフトRCカー用ジャイロの自作方法
+title: ドリフトRCカーの自作ジャイロ GyroM5
 description: 開発ボードM5StickCをラジドリ用ジャイロ化するソフトウェアの解説
 lang: ja_JP
 ---
-[日本語](index.md) | [English](README-en.md)
-
 # GyroM5
 
 - GyroM5（じゃいろ・えむご）は、ドリフトRCカーのステアリング補助ジャイロをM5StickCで自作するためのOSSです。
