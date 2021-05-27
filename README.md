@@ -2,8 +2,8 @@
 
 # GyroM5
 
-- GyroM5（じゃいろ・えむご）は、ドリフトRCカーのステアリング補助ジャイロをM5StickCで自作するためのOSSです。
-- M5StickCにスケッチ[GyroM5.ino](GyroM5/GyroM5.ino)をインストールすると、ドリフト走行を安定化するジャイロGyroM5として機能します。
+- GyroM5は、ドリフトRCカーのステアリング補助ジャイロをM5StickCで自作するためのオープンソースのソフトウェアです。
+- M5StickCにスケッチ[GyroM5.ino](GyroM5/GyroM5.ino)をインストールすると、ドリフト走行を安定化するジャイロとして機能します。
 
 ![ラジコン画像](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
