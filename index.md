@@ -4,7 +4,7 @@ title: ドリフトRCカー用ジャイロの自作方法
 description: 開発ボードM5StickCをラジドリ用ジャイロ化するソフトウェアの解説
 lang: ja_JP
 ---
-[日本語](index.html) | [English](README-en.md)
+[日本語](index.md) | [English](README-en.md)
 
 # GyroM5
 
