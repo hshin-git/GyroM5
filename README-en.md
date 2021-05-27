@@ -125,7 +125,7 @@ GyroM5 uses generic feedback control algorithm "PID control".
 
 ![PID_wikipedia](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PID_en.svg/800px-PID_en.svg.png)
 
-In the PID control, the plant/process is RC car.
+In the above PID control, the plant/process is your RC car.
 The target r, the output y and the control u are as follows.
 
 - target: r = ch1_in = CH1 input from RC receiver
@@ -141,7 +141,7 @@ LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is 
 
 
 ### Parameters
-You can confirm/adjust the PID integer gains by LCD, A/B buttons and CH1.
+You can confirm/adjust the integer PID gains by LCD, A/B buttons and CH1.
 The integer gains (in uppercase) are normalized from -100 to 100, and are related to the real gains (in lowercase) as follows.
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
@@ -152,12 +152,12 @@ The integer gains (in uppercase) are normalized from -100 to 100, and are relate
 - Derivative Gain: Kd = KD/50.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
 
 Initial parameters are recommended to set the integer gains "KG=50, KP=60, KI=30, KD=10".
-Special parameters "KG=KI=KD=0 and KP=50" are as same as the setting "pass throw: u=r". 
+Special integer gains "KG=KI=KD=0 and KP=50" are as same as the setting "pass throw: u=r". 
 The plus/minus sign of KG is used for normal/reverse operation in steering servo.
 
 
 ### Realtime
-GyroM5 is approximately realtime control system, and its control frequency (cycle) is 50Hz (20ms).
+GyroM5 is an approximately realtime control system, and its control frequency (cycle) is 50Hz (20ms).
 
 - GyroM5 inputs CH1 in every 20ms cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
 - Since function pluseIn(...) blocks to read PWM, sequential reading both CH1 and CH3 takes over 20ms.
@@ -186,7 +186,7 @@ Hints for "RWD drifting" are listed bellow.
 
 - Larger steering angle is better for controlability.
 - Faster steering servo is also better.
-- Slippy tires are easier to drift by low power motor.
+- Slippy tires are easier to drift by low power motor/battery.
 
 
 
