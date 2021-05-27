@@ -16,6 +16,11 @@ This Tamiya RC car (SU-01) with GyroM5 is performing "RWD drifting".
 
 https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-9f59-ec6aaef0b9b0.mp4
 
+<video width="640" height="480" controls>
+  <source type="video/mp4" src="https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-9f59-ec6aaef0b9b0.mp4">
+</video>
+
+
 
 # Features
 GyroM5 has unique features.
