@@ -117,7 +117,7 @@ One state transits to anothr state at button [A]/[B] or timeout event.
 |Waiting |RC signal |waits for PWM signal from RC receiver|
 |Calibrating |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
 |Operating |[A],[B] |displays RC signals, IMU inputs and PID gains|
-|SettingGain |[A],[B] |sets PID gains and CH1 end points|
+|SettingPID |[A],[B] |sets PID gains and CH1 end points|
 |SettingCH3 |[B] |binds CH3 to PID gains|
 
 
