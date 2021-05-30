@@ -3,7 +3,7 @@ url: "https://hshin-git.github.io/GyroM5/"
 plugins:
   - jekyll-sitemap
 title: ラジドリ用ジャイロ"GyroM5"
-description: M5StickCで自作するオープンソースのラジコン二駆ドリフト走行安定化ユニット
+description: M5StickCで自作するオープンソースのラジコン二駆ドリフト安定化ユニット
 locale: ja_JP
 languages: ['ja','en']
 default_lang: 'ja'
