@@ -1,4 +1,4 @@
-theme: jekyll-theme-cayman
+theme: jekyll-theme-slate
 url: "https://hshin-git.github.io/GyroM5/"
 plugins:
   - jekyll-sitemap
