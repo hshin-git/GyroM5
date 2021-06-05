@@ -4,7 +4,7 @@
 
 - GyroM5は、ドリフトRCカーのステアリングジャイロをM5StickCで自作するためのOSSです。
 - M5StickCにスケッチ[GyroM5.ino](GyroM5/GyroM5.ino)をインストールしてRCユニットと接続すれば完成です。
-- 調整幅の広いPID制御の採用により、ステアリングのアシスト動作を自由自在に設定できます。
+- 本格的なPID制御の採用により、ステアリングのアシスト動作を自由自在に設定できます。
 
 ![ラジコン画像](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
