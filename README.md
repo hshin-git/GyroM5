@@ -14,7 +14,7 @@
 
 # DEMO
 GyroM5搭載のタミヤ製RCカー（SU-01シャーシ）がRWDドリフト走行するデモ動画です。
-市販の（おそらくP制御だけの）ピエゾジャイロではドリフト走行を安定化できませんでした。
+市販の（おそらくP制御だけの）ピエゾジャイロではSU-01のドリフト走行を安定化できませんでした。
 
 <video width="320" height="240" muted controls>
   <source type="video/mp4" src="https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-9f59-ec6aaef0b9b0.mp4">
