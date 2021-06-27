@@ -58,7 +58,7 @@ const int DELAY = 300;
 // QuickPID
 //////////////////////////////////////////////////
 float Setpoint, Input, Output;
-float Kp=1.0, Ki=0.0, Kd=1.0;
+float Kp=1.0, Ki=0.0, Kd=0.0;
 QuickPID myPID(&Input, &Output, &Setpoint, Kp,Ki,Kd, QuickPID::DIRECT);
 
 
@@ -220,7 +220,7 @@ void configLoop() {
               String key = KEYS[n];
               key = key + "=";
               p1 = currentLine.indexOf(key, p2) + key.length();
-              p2 = currentLine.indexOf(n<SIZE-1? '&': ' ', p1);
+              p2 = currentLine.indexOf(n<SIZE-TAIL-1? '&': ' ', p1);
               val = currentLine.substring(p1, p2).toInt();
               CONF[n] = val;
             }
@@ -390,14 +390,14 @@ void call_calibration(void) {
     }
     //
     if (lcd_header("INIT",n==0)) {
-      M5.Lcd.println("CH1(usec)");
+      M5.Lcd.println("CH1 (usec)");
       M5.Lcd.printf( "   %8.2f\n",CH1US_MEAN);
       M5.Lcd.printf( "   %6dHz\n",hrz);
-      M5.Lcd.println("OMEGA(rad/s)");
+      M5.Lcd.println("OMEGA (rad/s)");
       M5.Lcd.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
       M5.Lcd.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
       M5.Lcd.printf( " Z:%8.2f\n",OMEGA_MEAN[2]);
-      M5.Lcd.println("ACCEL(G)");
+      M5.Lcd.println("ACCEL (G)");
       M5.Lcd.printf( " X:%8.2f\n",ACCEL_MEAN[0]);
       M5.Lcd.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
       M5.Lcd.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
