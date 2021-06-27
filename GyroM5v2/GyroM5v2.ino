@@ -248,7 +248,7 @@ void configLoop() {
 void config_by_wifi() {
   //WIFI_SERVER.begin();
   //
-  if (lcd_header("CONF",true)) {
+  if (lcd_header("WIFI",true)) {
     M5.Lcd.println("[B] CANCEL");
     M5.Lcd.println("SSID:"); M5.Lcd.printf(" %s\n",WIFI_SSID);
     M5.Lcd.println("PASS:"); M5.Lcd.printf(" %s\n",WIFI_PASS);
@@ -411,7 +411,7 @@ float getYawRate(float *omega) {
   float w2 = (omega[2]-OMEGA_MEAN[2])*ACCEL_MEAN[2];
   return (w0 + w1 + w2) * M5.MPU6886.gRes;
 }
-// vertiacal accel
+// vertical accel
 float getVertical(float *accel) {
   float gv = accel[0]*ACCEL_MEAN[0] + accel[1]*ACCEL_MEAN[1] + accel[2]*ACCEL_MEAN[2];
   return gv;
