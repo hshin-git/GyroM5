@@ -87,7 +87,6 @@ bool lcd_header(char *text, bool forced=false) {
 //////////////////////////////////////////////////
 // 5Vin watcher
 //////////////////////////////////////////////////
-//int lastVinTime = 0;
 void axp_halt(){
   Wire1.beginTransmission(0x34);
   Wire1.write(0x32);
@@ -220,7 +219,7 @@ void configLoop() {
               String key = KEYS[n];
               key = key + "=";
               p1 = currentLine.indexOf(key, p2) + key.length();
-              p2 = currentLine.indexOf(n<SIZE-TAIL-1? '&': ' ', p1);
+              p2 = currentLine.indexOf(n<(SIZE-TAIL)-1? '&': ' ', p1);
               val = currentLine.substring(p1, p2).toInt();
               CONF[n] = val;
             }
@@ -431,6 +430,7 @@ float getHorizontal(float *accel) {
 // put your setup code here, to run once:
 //////////////////////////////////////////////////
 void setup() {
+  float Kp,Ki,Kd,Ku,Pu;
   // (1) Initialize M5StickC object
   M5.begin();
   M5.MPU6886.Init();
@@ -470,11 +470,13 @@ void setup() {
   call_calibration();
 
   // (7) Initialize QuickPID
+  Kp = CONF[_KP]/50.0; Ki = CONF[_KI]/200.0; Kd = CONF[_KD]/2000.0;
+  //Ku = CONF[_KP]/50.0; Pu = (CONF[_KI]+1)/50.0; Kp = 0.60*Ku; Ki = Kp/(0.50*Pu); Kd = Kp*(0.125*Pu); 
   Input = 0.0;
   Setpoint = 0.0;
   myPID.SetMode(QuickPID::TIMER);
   myPID.SetSampleTimeUs(1000000/getFrequency(true));
-  myPID.SetTunings(CONF[_KP]/100.0,CONF[_KI]/500.0,CONF[_KD]/500.0);
+  myPID.SetTunings(Kp,Ki,Kd);
   myPID.SetOutputLimits(CONF[_MIN]-CH1US_MEAN,CONF[_MAX]-CH1US_MEAN);
 
   // (8) Initialize Others
@@ -502,7 +504,8 @@ void loop() {
   int ch1_duty,ch1_usec;
   int ch3_gain,KG,KP,KI,KD;
   float yrate,error,contr;
-  
+  float Kp,Ki,Kd,Ku,Pu;
+      
   // (1) Input PWM values
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
   //if (LOOP%25 == 0) CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
@@ -535,7 +538,6 @@ void loop() {
 
   // QuickPID
   Setpoint = (CH1_USEC - CH1US_MEAN);
-  //Input = (KG/1.0) * lpf_update(YRATE_LPF,yrate);
   Input = (KG/1.0) * yrate;
   myPID.Compute();
   ch1_usec = constrain(CH1US_MEAN + Output, CONF[_MIN],CONF[_MAX]);
@@ -575,8 +577,10 @@ void loop() {
     M5.Lcd.printf( " I:%6d\n", getFrequency(true));
     M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
     // QuickPID
+    Kp = KP/50.0; Ki = KI/200.0; Kd = KD/2000.0;
+    //Ku = KP/50.0; Pu = (KI+1)/50.0; Kp = 0.60*Ku; Ki = Kp/(0.50*Pu); Kd = Kp*(0.125*Pu); 
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
-    myPID.SetTunings(KP/100.0,KI/500.0,KD/500.0);
+    myPID.SetTunings(Kp,Ki,Kd);
     myPID.SetOutputLimits(CONF[_MIN]-CH1US_MEAN,CONF[_MAX]-CH1US_MEAN);
   }
 
