@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////
 // GyroM5v2 - M5StickC project:
-//   Steering assisting unit for RC drift Car
+//   Steering assisting unit for RC drift car
 // New Features from GyroM5v1:
 //   Parameter setting by WiFi access
 //   Variable output PWM frequency
-//   PID computation by QuickPID library
+//   PID control by QuickPID library
 //   Direction free in HW installation
 // URL:
 //   https://github.com/hshin-git/GyroM5
