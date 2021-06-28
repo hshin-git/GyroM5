@@ -2,10 +2,10 @@
 // GyroM5v2 - M5StickC project:
 //   Steering assisting unit for RC drift car
 // New Features from GyroM5v1:
-//   Parameter setting by WiFi access
-//   Variable output PWM frequency
+//   Parameter setting by WiFi AP
+//   Variable PWM frequency output
 //   PID control by QuickPID library
-//   Direction free in HW installation
+//   Automatic detection of vertical axis
 // URL:
 //   https://github.com/hshin-git/GyroM5
 //////////////////////////////////////////////////
@@ -15,6 +15,7 @@
 #include <WiFiClient.h>
 #include <Preferences.h>
 #include <QuickPID.h>
+#include <Ticker.h>
 
 
 //////////////////////////////////////////////////
@@ -383,9 +384,10 @@ void call_calibration(void) {
     }
     //
     if (lcd_header("INIT",n==0)) {
+      M5.Lcd.println("PWM (Hz)");
+      M5.Lcd.printf( " F:%8d\n",hrz);
       M5.Lcd.println("CH1 (usec)");
-      M5.Lcd.printf( " W:%8.2f\n",CH1US_MEAN);
-      M5.Lcd.printf( " F:%6dHz\n",hrz);
+      M5.Lcd.printf( " D:%8.2f\n",CH1US_MEAN);
       M5.Lcd.println("OMEGA (rad/s)");
       M5.Lcd.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
       M5.Lcd.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
@@ -419,8 +421,8 @@ float getHorizontalG(float *accel) {
   float h2 = accel[2] - az*ACCEL_MEAN[2];
   return sqrt(h0*h0 + h1*h1 + h2*h2);
 }
-// vibrative accel := |a - z|
-float getVibrationG(float *accel) {
+// vibrational accel := |a - z|
+float getVibrationalG(float *accel) {
   float v0 = accel[0] - ACCEL_MEAN[0];
   float v1 = accel[1] - ACCEL_MEAN[1];
   float v2 = accel[2] - ACCEL_MEAN[2];
@@ -431,9 +433,10 @@ float getVibrationG(float *accel) {
 //////////////////////////////////////////////////
 // QuickPID with timer interruption
 //////////////////////////////////////////////////
-float Setpoint=0.0, Input=0.0, Output=0.0;
-float Kp=1.0, Ki=0.0, Kd=0.0;
-QuickPID myPID(&Input, &Output, &Setpoint, Kp,Ki,Kd, QuickPID::DIRECT);
+float Setpoint=0.0;
+float Input=0.0;
+float Output=0.0;
+QuickPID myPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
 
 // PWM input values in usec
 int CH1_USEC = 0;
@@ -450,11 +453,13 @@ void IRAM_ATTR loopPID() {
   int ch1_usec;
   float yrate;
   float Kg = (CONFIG[_KG]/1.0);
-  Kg = CONFIG[_CH1]? -Kg: Kg;
  
   // Input IMU
   M5.MPU6886.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
   M5.MPU6886.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
+
+  //
+  Kg = CONFIG[_CH1]? -Kg: Kg;
   yrate = getYawRate(IMU_OMEGA);
   
   // Compute PID
@@ -468,6 +473,7 @@ void IRAM_ATTR loopPID() {
 }
 
 // PID timer
+Ticker tickerPID;
 hw_timer_t *timerPID = NULL;
 //
 void setupPID(bool init=false) {
@@ -483,6 +489,9 @@ void setupPID(bool init=false) {
     int CycleInUs = 1000000/getFrequency(true);
     myPID.SetMode(QuickPID::TIMER);
     myPID.SetSampleTimeUs(CycleInUs);
+    
+    // PID timer is in trouble => hangup
+    //tickerPID.attach(CycleInUs/1000000.0,loopPID);
     //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
     //timerAttachInterrupt(timerPID, &loopPID, true);
     //timerAlarmWrite(timerPID, CycleInUs, true);
@@ -535,7 +544,7 @@ void setup() {
   // (6) Initialize Zero points
   call_calibration();
 
-  // (7) Initialize QuickPID
+  // (7) Initialize PID
   setupPID(true);
 
   // (8) Initialize Others
@@ -548,53 +557,57 @@ void setup() {
 //////////////////////////////////////////////////
 void loop() {
   float ME,MAE,MSE;
+  // Fetch new Setpoint/Input and compute PID
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
   loopPID();
 
-  if (getVibrationG(IMU_ACCEL)>0.2 & getYawRate(IMU_OMEGA)>0.2) {
-    float error = Setpoint - Input;
-    ME = lpf_update(LPF_ME,error);
-    MAE = lpf_update(LPF_MAE,abs(error));
-    MSE = lpf_update(LPF_MSE,error*error);
+  // Moving statistics in Error = Stpoint - Input
+  if (getVibrationalG(IMU_ACCEL)>0.2 & getYawRate(IMU_OMEGA)>0.2) {
+    float Error = Setpoint - Input;
+    ME = lpf_update(LPF_ME,Error);
+    MAE = lpf_update(LPF_MAE,abs(Error));
+    MSE = lpf_update(LPF_MSE,Error*Error);
   }
 
+  // Monitoring variables in every 500msec
   if (lcd_header("HOME")) {
-    // enters at every 500msec
     int ch3_gain;
-    // RECV
+    // RCV monitor
     M5.Lcd.println("RCV (usec)");
     M5.Lcd.printf( " CH1:%6d\n", CH1_USEC);
     //M5.Lcd.printf( " CH2:%6d\n", CH2_USEC);
     M5.Lcd.printf( " CH3:%6d\n", CH3_USEC);
-    // PWM
+    // PWM monitor
     M5.Lcd.println("PWM (Hz)");
     M5.Lcd.printf( " I:%6d\n", getFrequency(true));
     M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
-    // IMU
+    // IMU monitor
     //M5.Lcd.println("IMU");
     //M5.Lcd.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
-    //M5.Lcd.printf( " V:%8.2f\n", getVibrationG(IMU_ACCEL));
+    //M5.Lcd.printf( " V:%8.2f\n", getVerticalG(IMU_ACCEL));
+    //M5.Lcd.printf( " H:%8.2f\n", getHorizontalG(IMU_ACCEL));
+    //M5.Lcd.printf( " S:%8.2f\n", getVibrationalG(IMU_ACCEL));
     //M5.Lcd.println("OMEGA (rad/s)");
     //M5.Lcd.printf( " X:%8.2f\n", IMU_OMEGA[0] *M5.MPU6886.gRes);
     //M5.Lcd.printf( " Y:%8.2f\n", IMU_OMEGA[1] *M5.MPU6886.gRes);
     //M5.Lcd.printf( " Z:%8.2f\n", IMU_OMEGA[2] *M5.MPU6886.gRes);
     //M5.Lcd.println("ACCEL (G)");
-    //M5.Lcd.printf(" X:%8.2f\n", IMU_ACCEL[0]);
-    //M5.Lcd.printf(" Y:%8.2f\n", IMU_ACCEL[1]);
-    //M5.Lcd.printf(" Z:%8.2f\n", IMU_ACCEL[2]);
-    // PID
+    //M5.Lcd.printf( " X:%8.2f\n", IMU_ACCEL[0]);
+    //M5.Lcd.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
+    //M5.Lcd.printf( " Z:%8.2f\n", IMU_ACCEL[2]);
+    // PID monitor
     M5.Lcd.println("PID (0-100)");
     M5.Lcd.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
     M5.Lcd.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
     M5.Lcd.printf( " P:%8.2f\n", myPID.GetPterm());
     M5.Lcd.printf( " I:%8.2f\n", myPID.GetIterm());
     M5.Lcd.printf( " D:%8.2f\n", myPID.GetDterm());
-    // ERROR
+    // ERR monitor
     M5.Lcd.println("ERR (16bit)");
     M5.Lcd.printf( " ME:%9.2f\n", ME);
     M5.Lcd.printf( " MAE:%8.2f\n", MAE);
     M5.Lcd.printf( " RMSE:%7.2f\n", sqrt(MSE));
-    // CH3 to gain
+    // CH3 => CONFIG
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
     ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
     ch3_gain = constrain(ch3_gain,0,100);
@@ -606,15 +619,17 @@ void loop() {
       case 5: CONFIG[_KG] = 50; CONFIG[_KG] = CONFIG[_KI] = CONFIG[_KD] = 0; break;
       default: break;
     }
-    // QuickPID
+    // QuickPID <= CONFIG
     setupPID();    
   }
 
-  // (6) watch vin and buttons
+  // Watch vin and buttons
   vin_watch();
   M5.update();
   if (M5.BtnA.isPressed()) config_by_wifi();
   else
   if (M5.BtnB.isPressed()) config_ch1ends();
+
+  // Count input PWM frequency
   getFrequency();
 }
