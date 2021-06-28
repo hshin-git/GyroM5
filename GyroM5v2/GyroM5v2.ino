@@ -55,11 +55,22 @@ const int DELAY = 300;
 
 
 //////////////////////////////////////////////////
-// QuickPID
+// PWM output frequency
 //////////////////////////////////////////////////
-float Setpoint, Input, Output;
-float Kp=1.0, Ki=0.0, Kd=0.0;
-QuickPID myPID(&Input, &Output, &Setpoint, Kp,Ki,Kd, QuickPID::DIRECT);
+int PWM_HERZ_ = 50;
+int PWM_CYCL_ = 1000000/PWM_HERZ_;
+void ch1_setHerz(int herz) {
+  if (herz<50 || herz>500) return;
+  PWM_HERZ_ = herz;
+  PWM_CYCL_ = 1000000/PWM_HERZ_;
+  ledcSetup(PWM_CH1,PWM_HERZ_,PWM_BITS);
+  ledcAttachPin(CH1_OUT,PWM_CH1);
+  ledcWrite(PWM_CH1,0);
+}
+void ch1_output(int usec) {
+  int duty = map(usec, 0,PWM_CYCL_, 0,PWM_DMAX);
+  ledcWrite(PWM_CH1,(usec>0? duty: 0));
+}
 
 
 //////////////////////////////////////////////////
@@ -71,7 +82,7 @@ void lcd_clear(int bg_color=TFT_BLACK, int fg_color=TFT_WHITE) {
   M5.Lcd.setCursor(0,0);
 }
 bool lcd_header(char *text, bool forced=false) {
-  static int lastTime = 0;
+  static long lastTime = 0;
   if (forced || (lastTime + 500 < millis())) {
     lcd_clear();
     M5.Lcd.print(TITLE);
@@ -99,7 +110,7 @@ void axp_halt(){
   Wire1.endTransmission();
 }
 void vin_watch() {
-  static int lastTime = 0;
+  static long lastTime = 0;
   float vin = M5.Axp.GetVinData()*1.7 /1000;
   float usb = M5.Axp.GetVusbinData()*1.7 /1000;
   //Serial.printf("vin,usb = %f,%f\n",vin,usb);
@@ -114,37 +125,18 @@ void vin_watch() {
 
 
 //////////////////////////////////////////////////
-// PWM output frequency
-//////////////////////////////////////////////////
-int PWM_HERZ_ = 50;
-int PWM_CYCL_ = 1000000/PWM_HERZ_;
-void ch1_setHerz(int herz) {
-  if (herz<50 || herz>500) return;
-  PWM_HERZ_ = herz;
-  PWM_CYCL_ = 1000000/PWM_HERZ_;
-  ledcSetup(PWM_CH1,PWM_HERZ_,PWM_BITS);
-  ledcAttachPin(CH1_OUT,PWM_CH1);
-  ledcWrite(PWM_CH1,0);
-}
-void ch1_output(int usec) {
-  int duty = map(usec, 0,PWM_CYCL_, 0,PWM_DMAX);
-  ledcWrite(PWM_CH1,(usec>0? duty: 0));
-}
-
-
-//////////////////////////////////////////////////
 // Parameter config by WiFi
 //////////////////////////////////////////////////
-Preferences GYROM5;
-const char NVM_NAME[] = "GYROM5";
-const char NVM_KEY[] = "CONF";
+Preferences MEMORY;
+const char MEMORY_NAME[] = "GYROM5";
+const char MEMORY_KEY[] = "CONF";
 
 // GyroM5 parameters
 const char *KEYS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
-const int INIT[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-int CONF[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
+const int _INIT_[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
+int CONFIG[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
 enum INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
-const int SIZE = sizeof(CONF)/sizeof(int);
+const int SIZE = sizeof(CONFIG)/sizeof(int);
 const int TAIL = 3; // number of items after "PWM"
 
 
@@ -208,7 +200,7 @@ void configLoop() {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
-            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONF[_KG],CONF[_KP],CONF[_KI],CONF[_KD],CONF[_CH1],CONF[_CH3],CONF[_PWM],0);
+            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],0);
             client.println(HTML_BUFFER);
             break;
           } else if (currentLine.indexOf("GET /?") == 0) {
@@ -221,14 +213,14 @@ void configLoop() {
               p1 = currentLine.indexOf(key, p2) + key.length();
               p2 = currentLine.indexOf(n<(SIZE-TAIL)-1? '&': ' ', p1);
               val = currentLine.substring(p1, p2).toInt();
-              CONF[n] = val;
+              CONFIG[n] = val;
             }
-            GYROM5.putBytes(NVM_KEY,&CONF,sizeof(CONF));
-            ch1_setHerz(CONF[_PWM]);
+            MEMORY.putBytes(MEMORY_KEY,&CONFIG,sizeof(CONFIG));
+            ch1_setHerz(CONFIG[_PWM]);
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
-            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONF[_KG],CONF[_KP],CONF[_KI],CONF[_KD],CONF[_CH1],CONF[_CH3],CONF[_PWM],1);
+            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],1);
             client.println(HTML_BUFFER);
             configAccepted = true;
             break;
@@ -270,7 +262,7 @@ void config_by_wifi() {
 }
 
 
-// conf ch1 end points
+// config for ch1 end points
 void config_ch1ends() {
   int ch1,val;
   for (int n=0; n<2; n++) {
@@ -289,7 +281,7 @@ void config_ch1ends() {
       }
       M5.update();
       if (M5.BtnA.isPressed()) {
-        if (ch1>0) CONF[(n? _MAX: _MIN)] = ch1;
+        if (ch1>0) CONFIG[(n? _MAX: _MIN)] = ch1;
         break;
       }
       if (M5.BtnB.isPressed()) {
@@ -301,12 +293,12 @@ void config_ch1ends() {
   }
   // save
   if (ch1>0) {
-    if (CONF[_MAX] < CONF[_MIN]) {
-      int temp = CONF[_MAX];
-      CONF[_MAX] = CONF[_MIN];
-      CONF[_MIN] = temp;
+    if (CONFIG[_MAX] < CONFIG[_MIN]) {
+      int temp = CONFIG[_MAX];
+      CONFIG[_MAX] = CONFIG[_MIN];
+      CONFIG[_MIN] = temp;
     }
-    GYROM5.putBytes(NVM_KEY,&CONF,sizeof(CONF));
+    MEMORY.putBytes(MEMORY_KEY,&CONFIG,sizeof(CONFIG));
   }
   ch1_output(0);
   delay(DELAY);
@@ -316,9 +308,9 @@ void config_ch1ends() {
 //////////////////////////////////////////////////
 // Low/High Pass Filters
 //////////////////////////////////////////////////
-float CH1ER_LPF[4];
-float CH1ER_HPF[4];
-float YRATE_LPF[4];
+float LPF_ME[4];
+float LPF_MAE[4];
+float LPF_MSE[4];
 // LPF
 void lpf_init(float buf[],float alpha) {
   buf[0] = 0.;
@@ -357,7 +349,7 @@ float ACCEL_MEAN[3];
 
 // Frequency counter
 int getFrequency(bool getOnly = false) {
-  static int lastTime = 0;
+  static long lastTime = 0;
   static int count = 0;
   static int freq = 50;
   if (!getOnly) count = count + 1;
@@ -404,27 +396,101 @@ void call_calibration(void) {
   }
 }
 
-// yaw rate
+// yaw rate := (w,z)
 float getYawRate(float *omega) {
-  float w0 = (omega[0]-OMEGA_MEAN[0])*ACCEL_MEAN[0];
-  float w1 = (omega[1]-OMEGA_MEAN[1])*ACCEL_MEAN[1];
-  float w2 = (omega[2]-OMEGA_MEAN[2])*ACCEL_MEAN[2];
-  return (w0 + w1 + w2) * M5.MPU6886.gRes;
+  float wz0 = (omega[0]-OMEGA_MEAN[0])*ACCEL_MEAN[0];
+  float wz1 = (omega[1]-OMEGA_MEAN[1])*ACCEL_MEAN[1];
+  float wz2 = (omega[2]-OMEGA_MEAN[2])*ACCEL_MEAN[2];
+  return (wz0 + wz1 + wz2) * M5.MPU6886.gRes;
 }
-// vertical accel
-float getVertical(float *accel) {
-  float gv = accel[0]*ACCEL_MEAN[0] + accel[1]*ACCEL_MEAN[1] + accel[2]*ACCEL_MEAN[2];
-  return gv;
+// vertical accel := (a,z)
+float getVerticalG(float *accel) {
+  float az = accel[0]*ACCEL_MEAN[0] + accel[1]*ACCEL_MEAN[1] + accel[2]*ACCEL_MEAN[2];
+  return az;
 }
-// horizontal accel
-float getHorizontal(float *accel) {
-  float gv = accel[0]*ACCEL_MEAN[0] + accel[1]*ACCEL_MEAN[1] + accel[2]*ACCEL_MEAN[2];
-  float a0 = accel[0] - gv*ACCEL_MEAN[0];
-  float a1 = accel[1] - gv*ACCEL_MEAN[1];
-  float a2 = accel[2] - gv*ACCEL_MEAN[2];
-  return sqrt(a0*a0 + a1*a1 + a2*a2);
+// horizontal accel := |a - (a,z)z|
+float getHorizontalG(float *accel) {
+  float az = accel[0]*ACCEL_MEAN[0] + accel[1]*ACCEL_MEAN[1] + accel[2]*ACCEL_MEAN[2];
+  float h0 = accel[0] - az*ACCEL_MEAN[0];
+  float h1 = accel[1] - az*ACCEL_MEAN[1];
+  float h2 = accel[2] - az*ACCEL_MEAN[2];
+  return sqrt(h0*h0 + h1*h1 + h2*h2);
+}
+// vibrative accel := |a - z|
+float getVibrationG(float *accel) {
+  float v0 = accel[0] - ACCEL_MEAN[0];
+  float v1 = accel[1] - ACCEL_MEAN[1];
+  float v2 = accel[2] - ACCEL_MEAN[2];
+  return sqrt(v0*v0 + v1*v1 + v2*v2);
 }
 
+
+//////////////////////////////////////////////////
+// QuickPID with timer interruption
+//////////////////////////////////////////////////
+float Setpoint=0.0, Input=0.0, Output=0.0;
+float Kp=1.0, Ki=0.0, Kd=0.0;
+QuickPID myPID(&Input, &Output, &Setpoint, Kp,Ki,Kd, QuickPID::DIRECT);
+
+// PWM input values in usec
+int CH1_USEC = 0;
+int CH2_USEC = 0;
+int CH3_USEC = 0;
+
+// IMU input values
+float OMEGA[3];
+float ACCEL[3];
+
+
+// PID parameter
+void IRAM_ATTR loopPID() {
+  int ch1_usec;
+  float yrate;
+  float Kg = (CONFIG[_KG]/1.0);
+  Kg = CONFIG[_CH1]? -Kg: Kg;
+ 
+  // Input IMU
+  M5.MPU6886.getGyroData(&OMEGA[0],&OMEGA[1],&OMEGA[2]);
+  M5.MPU6886.getAccelData(&ACCEL[0],&ACCEL[1],&ACCEL[2]);
+  yrate = getYawRate(OMEGA);
+  
+  // Compute PID
+  Setpoint = (CH1_USEC - CH1US_MEAN);
+  Input = Kg * yrate;
+  myPID.Compute();
+  ch1_usec = constrain(CH1US_MEAN + Output, CONFIG[_MIN],CONFIG[_MAX]);
+  
+  // Output PWM
+  ch1_output((CH1_USEC>0? ch1_usec: 0));
+}
+
+// PID timer
+hw_timer_t *timerPID = NULL;
+//
+void setupPID(bool init=false) {
+  float Kp = (CONFIG[_KP]/50.);
+  float Ki = (CONFIG[_KI]/200.);
+  float Kd = (CONFIG[_KD]/2000.);
+  int Min = CONFIG[_MIN]-CH1US_MEAN;
+  int Max = CONFIG[_MAX]-CH1US_MEAN;
+  
+  if (init) {
+    //int CycleInUs = 1000000/CONFIG[_PWM];
+    int CycleInUs = 1000000/getFrequency();
+    myPID.SetMode(QuickPID::TIMER);
+    myPID.SetSampleTimeUs(CycleInUs);
+    //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
+    //timerAttachInterrupt(timerPID, &loopPID, true);
+    //timerAlarmWrite(timerPID, CycleInUs, true);
+    //timerAlarmEnable(timerPID);
+  }
+  
+  myPID.SetTunings(Kp,Ki,Kd);
+  myPID.SetOutputLimits(Min,Max);
+}
+
+
+// Main loop
 
 //////////////////////////////////////////////////
 // put your setup code here, to run once:
@@ -438,21 +504,18 @@ void setup() {
   //while (!setCpuFrequencyMhz(80));  
 
   // (2) Initialize Preferences
-  GYROM5.begin(NVM_NAME);
-  GYROM5.getBytes(NVM_KEY, &CONF, sizeof(CONF));
-  if (CONF[_END] != INIT[_END]) {
-    GYROM5.putBytes(NVM_KEY, &INIT, sizeof(CONF));
-    GYROM5.getBytes(NVM_KEY, &CONF, sizeof(CONF));
+  MEMORY.begin(MEMORY_NAME);
+  MEMORY.getBytes(MEMORY_KEY, &CONFIG, sizeof(CONFIG));
+  if (CONFIG[_END] != _INIT_[_END]) {
+    MEMORY.putBytes(MEMORY_KEY, &_INIT_, sizeof(CONFIG));
+    MEMORY.getBytes(MEMORY_KEY, &CONFIG, sizeof(CONFIG));
   }
 
   // (3) Initialize GPIO settings
   pinMode(CH1_IN,INPUT);
   pinMode(CH3_IN,INPUT);
   pinMode(CH1_OUT,OUTPUT);
-  ch1_setHerz(CONF[_PWM]);
-  //ledcSetup(PWM_CH1,PWM_HERZ,PWM_BITS);
-  //ledcAttachPin(CH1_OUT,PWM_CH1);
-  //ledcWrite(PWM_CH1,0);
+  ch1_setHerz(CONFIG[_PWM]);
 
   // (4) WiFi AP setting
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
@@ -462,22 +525,15 @@ void setup() {
   WIFI_SERVER.begin();
 
   // (5) Initialize Filters
-  lpf_init(CH1ER_LPF,2.0/ 50);
-  hpf_init(CH1ER_HPF,50./100);
-  lpf_init(YRATE_LPF,0.5);
+  lpf_init(LPF_ME,1./500);
+  lpf_init(LPF_MAE,1./500);
+  lpf_init(LPF_MSE,1./500);
 
   // (6) Initialize Zero points
   call_calibration();
 
   // (7) Initialize QuickPID
-  Kp = CONF[_KP]/50.0; Ki = CONF[_KI]/200.0; Kd = CONF[_KD]/2000.0;
-  //Ku = CONF[_KP]/50.0; Pu = (CONF[_KI]+1)/50.0; Kp = 0.60*Ku; Ki = Kp/(0.50*Pu); Kd = Kp*(0.125*Pu); 
-  Input = 0.0;
-  Setpoint = 0.0;
-  myPID.SetMode(QuickPID::TIMER);
-  myPID.SetSampleTimeUs(1000000/getFrequency(true));
-  myPID.SetTunings(Kp,Ki,Kd);
-  myPID.SetOutputLimits(CONF[_MIN]-CH1US_MEAN,CONF[_MAX]-CH1US_MEAN);
+  setupPID(true);
 
   // (8) Initialize Others
   //Serial.begin(115200);
@@ -487,78 +543,34 @@ void setup() {
 //////////////////////////////////////////////////
 // put your main code here, to run repeatedly:
 //////////////////////////////////////////////////
-// PWM widths in usec
-int CH1_USEC = 0;
-int CH2_USEC = 0;
-int CH3_USEC = 0;
-
-// IMU values
-float OMEGA[3];
-float ACCEL[3];
-
-// Main loop counter
-//int LOOP = 0;
-
-// Main loop
 void loop() {
-  int ch1_duty,ch1_usec;
-  int ch3_gain,KG,KP,KI,KD;
-  float yrate,error,contr;
-  float Kp,Ki,Kd,Ku,Pu;
-      
-  // (1) Input PWM values
+  float ME,MAE,MSE;
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  //if (LOOP%25 == 0) CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
+  loopPID();
 
-  // (2) Input IMU values
-  M5.MPU6886.getGyroData(&OMEGA[0],&OMEGA[1],&OMEGA[2]);
-  M5.MPU6886.getAccelData(&ACCEL[0],&ACCEL[1],&ACCEL[2]);
-
-  // (3) Prepare PID gains
-  KG = CONF[_KG];
-  KP = CONF[_KP];
-  KI = CONF[_KI];
-  KD = CONF[_KD];
-  ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
-  switch (CONF[_CH3]) {
-    case 1: KG = ch3_gain; break;
-    case 2: KP = ch3_gain; break;
-    case 3: KI = ch3_gain; break;
-    case 4: KD = ch3_gain; break;
-    case 5: KP = 50; KG = KI = KD = 0; break;
-    default: break;
+  if (getVibrationG(ACCEL)>0.2 & getYawRate(OMEGA)>0.2) {
+    float error = Setpoint - Input;
+    ME = lpf_update(LPF_ME,error);
+    MAE = lpf_update(LPF_MAE,abs(error));
+    MSE = lpf_update(LPF_MSE,error*error);
   }
-  if (CONF[_CH1]) KG = -KG;
-  
-  // (4) Compute PID control
-  yrate = getYawRate(OMEGA);
-  //yrate = (OMEGA[2] - OMEGA_MEAN[2]) * M5.MPU6886.gRes;
-  //error = (CH1_USEC - CH1US_MEAN) - (KG/1.0)*yrate;
-  //contr =  (KP/50.0)*(error + (KI/50.0)*lpf_update(CH1ER_LPF,error) + (KD/50.0)*hpf_update(CH1ER_HPF,error));
 
-  // QuickPID
-  Setpoint = (CH1_USEC - CH1US_MEAN);
-  Input = (KG/1.0) * yrate;
-  myPID.Compute();
-  ch1_usec = constrain(CH1US_MEAN + Output, CONF[_MIN],CONF[_MAX]);
-  ch1_output((CH1_USEC>0? ch1_usec: 0));
-
-  // convert usec to duty and constrain
-  //ch1_usec = constrain(CH1US_MEAN + contr,CONF[_MIN],CONF[_MAX]);
-  //ch1_duty = map(ch1_usec, 0,PWM_CYCL, 0,PWM_DMAX);
-  //ledcWrite(PWM_CH1,(CH1_USEC>0? ch1_duty: 0));
-  
-  // (5) Update LCD
   if (lcd_header("HOME")) {
-    M5.Lcd.println("INPUT (usec)");
+    // enters at every 500msec
+    int ch3_gain;
+    // RECV
+    M5.Lcd.println("RCV (usec)");
     M5.Lcd.printf( " CH1:%6d\n", CH1_USEC);
     //M5.Lcd.printf( " CH2:%6d\n", CH2_USEC);
     M5.Lcd.printf( " CH3:%6d\n", CH3_USEC);
-    M5.Lcd.println("YRATE (rad/s)");
-    M5.Lcd.printf( " R:%8.2f\n", yrate);
-    M5.Lcd.println("ACCEL (G)");
-    M5.Lcd.printf( " H:%8.2f\n", getHorizontal(ACCEL));
-    M5.Lcd.printf( " V:%8.2f\n", getVertical(ACCEL));
+    // PWM
+    M5.Lcd.println("PWM (Hz)");
+    M5.Lcd.printf( " I:%6d\n", getFrequency(true));
+    M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
+    // IMU
+    //M5.Lcd.println("IMU");
+    //M5.Lcd.printf( " Y:%8.2f\n", getYawRate(OMEGA));
+    //M5.Lcd.printf( " V:%8.2f\n", getVibrationG(ACCEL));
     //M5.Lcd.println("OMEGA (rad/s)");
     //M5.Lcd.printf( " X:%8.2f\n", OMEGA[0] *M5.MPU6886.gRes);
     //M5.Lcd.printf( " Y:%8.2f\n", OMEGA[1] *M5.MPU6886.gRes);
@@ -567,21 +579,32 @@ void loop() {
     //M5.Lcd.printf(" X:%8.2f\n", ACCEL[0]);
     //M5.Lcd.printf(" Y:%8.2f\n", ACCEL[1]);
     //M5.Lcd.printf(" Z:%8.2f\n", ACCEL[2]);
+    // PID
     M5.Lcd.println("PID (0-100)");
-    M5.Lcd.printf( " G/P:%3d/%3d\n", KG,KP);
-    M5.Lcd.printf( " I/D:%3d/%3d\n", KI,KD);
+    M5.Lcd.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
+    M5.Lcd.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
     M5.Lcd.printf( " P:%8.2f\n", myPID.GetPterm());
     M5.Lcd.printf( " I:%8.2f\n", myPID.GetIterm());
     M5.Lcd.printf( " D:%8.2f\n", myPID.GetDterm());
-    M5.Lcd.println("PWM (Hz)");
-    M5.Lcd.printf( " I:%6d\n", getFrequency(true));
-    M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
-    // QuickPID
-    Kp = KP/50.0; Ki = KI/200.0; Kd = KD/2000.0;
-    //Ku = KP/50.0; Pu = (KI+1)/50.0; Kp = 0.60*Ku; Ki = Kp/(0.50*Pu); Kd = Kp*(0.125*Pu); 
+    // ERROR
+    M5.Lcd.println("ERR (16bit)");
+    M5.Lcd.printf( " ME:%9.2f\n", ME);
+    M5.Lcd.printf( " MAE:%8.2f\n", MAE);
+    M5.Lcd.printf( " RMSE:%7.2f\n", sqrt(MSE));
+    // CH3 to gain
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
-    myPID.SetTunings(Kp,Ki,Kd);
-    myPID.SetOutputLimits(CONF[_MIN]-CH1US_MEAN,CONF[_MAX]-CH1US_MEAN);
+    ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
+    ch3_gain = constrain(ch3_gain,0,100);
+    switch (CONFIG[_CH3]) {
+      case 1: CONFIG[_KG] = ch3_gain; break;
+      case 2: CONFIG[_KP] = ch3_gain; break;
+      case 3: CONFIG[_KI] = ch3_gain; break;
+      case 4: CONFIG[_KD] = ch3_gain; break;
+      case 5: CONFIG[_KG] = 50; CONFIG[_KG] = CONFIG[_KI] = CONFIG[_KD] = 0; break;
+      default: break;
+    }
+    // QuickPID
+    setupPID();    
   }
 
   // (6) watch vin and buttons
@@ -591,5 +614,4 @@ void loop() {
   else
   if (M5.BtnB.isPressed()) config_ch1ends();
   getFrequency();
-  //LOOP = (LOOP + 1) % 50;
 }
