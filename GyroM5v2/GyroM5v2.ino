@@ -4,7 +4,7 @@
 // New Features from GyroM5v1:
 //   Parameter setting by WiFi AP
 //   Variable PWM frequency output
-//   PID control by QuickPID library
+//   Continuous time PID controller
 //   Automatic detection of vertical axis
 // URL:
 //   https://github.com/hshin-git/GyroM5
