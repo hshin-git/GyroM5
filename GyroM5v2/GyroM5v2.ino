@@ -362,13 +362,15 @@ int getFrequency(bool getOnly = false) {
 }
 
 void call_calibration(void) {
+  long startTime;
   // wait
   lcd_header("WAIT",true);
   for (int n=0; n<10; n++) {
     while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) vin_watch();
   }
   // zero
-  for (int n=0; n<250; n++) {
+  startTime = millis();
+  for (int n=0; true; n++) {
     float omega[3],accel[3];
     int ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
     int hrz = getFrequency();
@@ -382,8 +384,8 @@ void call_calibration(void) {
     //
     if (lcd_header("INIT",n==0)) {
       M5.Lcd.println("CH1 (usec)");
-      M5.Lcd.printf( "   %8.2f\n",CH1US_MEAN);
-      M5.Lcd.printf( "   %6dHz\n",hrz);
+      M5.Lcd.printf( " W:%8.2f\n",CH1US_MEAN);
+      M5.Lcd.printf( " F:%6dHz\n",hrz);
       M5.Lcd.println("OMEGA (rad/s)");
       M5.Lcd.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
       M5.Lcd.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
@@ -393,6 +395,7 @@ void call_calibration(void) {
       M5.Lcd.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
       M5.Lcd.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
     }
+    if (startTime + 5000 < millis()) break;
   }
 }
 
@@ -438,8 +441,8 @@ int CH2_USEC = 0;
 int CH3_USEC = 0;
 
 // IMU input values
-float OMEGA[3];
-float ACCEL[3];
+float IMU_OMEGA[3];
+float IMU_ACCEL[3];
 
 
 // PID parameter
@@ -450,9 +453,9 @@ void IRAM_ATTR loopPID() {
   Kg = CONFIG[_CH1]? -Kg: Kg;
  
   // Input IMU
-  M5.MPU6886.getGyroData(&OMEGA[0],&OMEGA[1],&OMEGA[2]);
-  M5.MPU6886.getAccelData(&ACCEL[0],&ACCEL[1],&ACCEL[2]);
-  yrate = getYawRate(OMEGA);
+  M5.MPU6886.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
+  M5.MPU6886.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
+  yrate = getYawRate(IMU_OMEGA);
   
   // Compute PID
   Setpoint = (CH1_USEC - CH1US_MEAN);
@@ -468,15 +471,16 @@ void IRAM_ATTR loopPID() {
 hw_timer_t *timerPID = NULL;
 //
 void setupPID(bool init=false) {
+  float ratio = getFrequency(true)/50.;
   float Kp = (CONFIG[_KP]/50.);
-  float Ki = (CONFIG[_KI]/200.);
+  float Ki = (CONFIG[_KI]/200.)/ratio;
   float Kd = (CONFIG[_KD]/2000.);
   int Min = CONFIG[_MIN]-CH1US_MEAN;
   int Max = CONFIG[_MAX]-CH1US_MEAN;
   
   if (init) {
     //int CycleInUs = 1000000/CONFIG[_PWM];
-    int CycleInUs = 1000000/getFrequency();
+    int CycleInUs = 1000000/getFrequency(true);
     myPID.SetMode(QuickPID::TIMER);
     myPID.SetSampleTimeUs(CycleInUs);
     //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
@@ -496,7 +500,6 @@ void setupPID(bool init=false) {
 // put your setup code here, to run once:
 //////////////////////////////////////////////////
 void setup() {
-  float Kp,Ki,Kd,Ku,Pu;
   // (1) Initialize M5StickC object
   M5.begin();
   M5.MPU6886.Init();
@@ -548,7 +551,7 @@ void loop() {
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
   loopPID();
 
-  if (getVibrationG(ACCEL)>0.2 & getYawRate(OMEGA)>0.2) {
+  if (getVibrationG(IMU_ACCEL)>0.2 & getYawRate(IMU_OMEGA)>0.2) {
     float error = Setpoint - Input;
     ME = lpf_update(LPF_ME,error);
     MAE = lpf_update(LPF_MAE,abs(error));
@@ -569,16 +572,16 @@ void loop() {
     M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
     // IMU
     //M5.Lcd.println("IMU");
-    //M5.Lcd.printf( " Y:%8.2f\n", getYawRate(OMEGA));
-    //M5.Lcd.printf( " V:%8.2f\n", getVibrationG(ACCEL));
+    //M5.Lcd.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
+    //M5.Lcd.printf( " V:%8.2f\n", getVibrationG(IMU_ACCEL));
     //M5.Lcd.println("OMEGA (rad/s)");
-    //M5.Lcd.printf( " X:%8.2f\n", OMEGA[0] *M5.MPU6886.gRes);
-    //M5.Lcd.printf( " Y:%8.2f\n", OMEGA[1] *M5.MPU6886.gRes);
-    //M5.Lcd.printf( " Z:%8.2f\n", OMEGA[2] *M5.MPU6886.gRes);
+    //M5.Lcd.printf( " X:%8.2f\n", IMU_OMEGA[0] *M5.MPU6886.gRes);
+    //M5.Lcd.printf( " Y:%8.2f\n", IMU_OMEGA[1] *M5.MPU6886.gRes);
+    //M5.Lcd.printf( " Z:%8.2f\n", IMU_OMEGA[2] *M5.MPU6886.gRes);
     //M5.Lcd.println("ACCEL (G)");
-    //M5.Lcd.printf(" X:%8.2f\n", ACCEL[0]);
-    //M5.Lcd.printf(" Y:%8.2f\n", ACCEL[1]);
-    //M5.Lcd.printf(" Z:%8.2f\n", ACCEL[2]);
+    //M5.Lcd.printf(" X:%8.2f\n", IMU_ACCEL[0]);
+    //M5.Lcd.printf(" Y:%8.2f\n", IMU_ACCEL[1]);
+    //M5.Lcd.printf(" Z:%8.2f\n", IMU_ACCEL[2]);
     // PID
     M5.Lcd.println("PID (0-100)");
     M5.Lcd.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
