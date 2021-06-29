@@ -21,13 +21,10 @@
 //////////////////////////////////////////////////
 // Global constants
 //////////////////////////////////////////////////
-// Title name for LCD/HTML
-const char TITLE[] = "GyroM5";
-
 // WiFi parameters
 const char WIFI_SSID[] = "GyroM5";
 const char WIFI_PASS[] = "";
-const IPAddress WIFI_IP(192,168,4,1);
+const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
 
@@ -77,22 +74,36 @@ void ch1_output(int usec) {
 //////////////////////////////////////////////////
 // LCD helpers
 //////////////////////////////////////////////////
-void lcd_clear(int bg_color=TFT_BLACK, int fg_color=TFT_WHITE) {
-  M5.Lcd.fillScreen(bg_color);
-  M5.Lcd.setTextColor(fg_color);
-  M5.Lcd.setCursor(0,0);
+TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
+int BG_COLOR = TFT_BLACK;
+int FG_COLOR = TFT_WHITE;
+void canvas_init(void) {
+  M5.Axp.ScreenBreath(8);
+  M5.Lcd.setRotation(0);
+  canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
-bool lcd_header(char *text, bool forced=false) {
+void canvas_clear(void) {
+  canvas.fillScreen(BG_COLOR);
+  canvas.setTextColor(FG_COLOR,BG_COLOR);
+  canvas.setCursor(0,0);
+}
+bool canvas_header(char *text, bool forced=false) {
   static long lastTime = 0;
   if (forced || (lastTime + 500 < millis())) {
-    lcd_clear();
-    M5.Lcd.print(TITLE);
-    M5.Lcd.print("@");
-    M5.Lcd.println(text);
+    canvas_clear();
+    canvas.setTextColor(BG_COLOR,FG_COLOR);
+    canvas.printf("    %s    \n",text);
+    canvas.setTextColor(FG_COLOR,BG_COLOR);
     lastTime = millis();
     return true;
   }
   return false;
+}
+bool canvas_footer(char *text) {
+  canvas.setTextColor(BG_COLOR,FG_COLOR);
+  canvas.printf("    %s    \n",text);
+  canvas.setTextColor(FG_COLOR,BG_COLOR);
+  canvas.pushSprite(0,0);
 }
 
 
@@ -128,17 +139,38 @@ void vin_watch() {
 //////////////////////////////////////////////////
 // Parameter config by WiFi
 //////////////////////////////////////////////////
-Preferences MEMORY;
-const char MEMORY_NAME[] = "GYROM5";
-const char MEMORY_KEY[] = "CONF";
+Preferences STORAGE;
+const char CONFIG_NAME[] = "GYROM5";
+const char CONFIG_KEY[] = "CONF";
 
 // GyroM5 parameters
 const char *KEYS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
 const int _INIT_[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
 int CONFIG[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-enum INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
+enum _INDEX_ {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
 const int SIZE = sizeof(CONFIG)/sizeof(int);
 const int TAIL = 3; // number of items after "PWM"
+
+// storage read/write
+void config_init() {
+  STORAGE.begin(CONFIG_NAME);
+  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  if (CONFIG[_END] != _INIT_[_END]) { // the first time
+    STORAGE.putBytes(CONFIG_KEY, &_INIT_, sizeof(CONFIG));
+    STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  }
+}
+void config_puts() {
+  STORAGE.putBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+}
+void config_gets() {
+  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+}
+void config_show() {
+  canvas_header("CONF");
+  for (int n=0; n<SIZE; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
+  canvas_footer("CONF");
+}
 
 
 // HTML template
@@ -181,7 +213,7 @@ window.onload = onLoad();
 )";
 
 // HTML buffer
-char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(TITLE)+4*SIZE];
+char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
 
 // Web server for config
 bool configAccepted = false;
@@ -201,7 +233,7 @@ void configLoop() {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
-            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],0);
+            sprintf(HTML_BUFFER,HTML_TEMPLATE, WIFI_SSID,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],0);
             client.println(HTML_BUFFER);
             break;
           } else if (currentLine.indexOf("GET /?") == 0) {
@@ -216,12 +248,12 @@ void configLoop() {
               val = currentLine.substring(p1, p2).toInt();
               CONFIG[n] = val;
             }
-            MEMORY.putBytes(MEMORY_KEY,&CONFIG,sizeof(CONFIG));
+            config_puts();
             ch1_setHerz(CONFIG[_PWM]);
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
-            sprintf(HTML_BUFFER,HTML_TEMPLATE, TITLE,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],1);
+            sprintf(HTML_BUFFER,HTML_TEMPLATE, WIFI_SSID,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],1);
             client.println(HTML_BUFFER);
             configAccepted = true;
             break;
@@ -241,19 +273,24 @@ void configLoop() {
 void config_by_wifi() {
   //WIFI_SERVER.begin();
   //
-  if (lcd_header("WIFI",true)) {
-    M5.Lcd.println("[B] CANCEL");
-    M5.Lcd.println("SSID:"); M5.Lcd.printf(" %s\n",WIFI_SSID);
-    M5.Lcd.println("PASS:"); M5.Lcd.printf(" %s\n",WIFI_PASS);
-    M5.Lcd.print("IP:\n "); M5.Lcd.println(WIFI_IP);
+  if (canvas_header("WIFI",true)) {
+    char url[32];
+    canvas.println("[A] CANCEL");
+    canvas.println("SSID:"); canvas.printf(" %s\n",WIFI_SSID);
+    canvas.println("PASS:"); canvas.printf(" %s\n",WIFI_PASS);
+    canvas.println("IP:"); canvas.print(" "); canvas.println(WIFI_IP);
+    canvas_footer("WIFI");
+    sprintf(url,"http://%d.%d.%d.%d/",((WIFI_IP>>0)&0xff),((WIFI_IP>>8)&0xff),((WIFI_IP>>16)&0xff),((WIFI_IP>>24)&0xff));
+    M5.Lcd.qrcode(url,0,80,80,2);
   }
+  delay(DELAY);
   //
   configAccepted = false;
   while (!configAccepted) {
     configLoop();
     vin_watch();
     M5.update();
-    if (M5.BtnB.isPressed()) {
+    if (M5.BtnA.isPressed()) {
       delay(DELAY);
       return;
     }
@@ -273,12 +310,14 @@ void config_ch1ends() {
       val = map(ch1, 0,PWM_CYCL_, 0,PWM_DMAX);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
       ch1_output(ch1);
-      if (lcd_header("ENDS")) {
-        M5.Lcd.println((n? "LEFT": "RIGHT"));
-        M5.Lcd.printf("[A] SAVE\n");
-        M5.Lcd.printf("[B] CANCEL\n");
-        M5.Lcd.printf(" CH1:%6d\n",ch1);
-        M5.Lcd.printf(" VAL:%6d\n",val);
+      if (canvas_header("ENDS")) {
+        canvas.println((n? "LEFT": "RIGHT"));
+        canvas.printf("[A] SAVE\n");
+        canvas.printf("[B] CANCEL\n");
+        canvas.printf(" CH1:%6d\n",ch1);
+        canvas.printf(" VAL:%6d\n",val);
+        canvas.printf(" |%s| \n",(n? "<<<<    ": "    >>>>"));
+        canvas_footer("ENDS");
       }
       M5.update();
       if (M5.BtnA.isPressed()) {
@@ -299,7 +338,7 @@ void config_ch1ends() {
       CONFIG[_MAX] = CONFIG[_MIN];
       CONFIG[_MIN] = temp;
     }
-    MEMORY.putBytes(MEMORY_KEY,&CONFIG,sizeof(CONFIG));
+    config_puts();
   }
   ch1_output(0);
   delay(DELAY);
@@ -365,8 +404,11 @@ int getFrequency(bool getOnly = false) {
 void call_calibration(void) {
   long startTime;
   // wait
-  lcd_header("WAIT",true);
   for (int n=0; n<10; n++) {
+    if (canvas_header("WAIT",n==0)) {
+      canvas.printf(" N:%8d\n",n);
+      canvas_footer("WAIT");
+    }
     while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) vin_watch();
   }
   // zero
@@ -383,19 +425,20 @@ void call_calibration(void) {
       ACCEL_MEAN[i] = (n==0? accel[i]: (ACCEL_MEAN[i] + accel[i])/2.);
     }
     //
-    if (lcd_header("INIT",n==0)) {
-      M5.Lcd.println("PWM (Hz)");
-      M5.Lcd.printf( " F:%8d\n",hrz);
-      M5.Lcd.println("CH1 (usec)");
-      M5.Lcd.printf( " D:%8.2f\n",CH1US_MEAN);
-      M5.Lcd.println("OMEGA (rad/s)");
-      M5.Lcd.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
-      M5.Lcd.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
-      M5.Lcd.printf( " Z:%8.2f\n",OMEGA_MEAN[2]);
-      M5.Lcd.println("ACCEL (G)");
-      M5.Lcd.printf( " X:%8.2f\n",ACCEL_MEAN[0]);
-      M5.Lcd.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
-      M5.Lcd.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
+    if (canvas_header("MEAN",n==0)) {
+      canvas.println("PWM (Hz)");
+      canvas.printf( " F:%8d\n",hrz);
+      canvas.println("CH1 (us)");
+      canvas.printf( " D:%8.2f\n",CH1US_MEAN);
+      canvas.println("OMEGA (rad/s)");
+      canvas.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
+      canvas.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
+      canvas.printf( " Z:%8.2f\n",OMEGA_MEAN[2]);
+      canvas.println("ACCEL (G)");
+      canvas.printf( " X:%8.2f\n",ACCEL_MEAN[0]);
+      canvas.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
+      canvas.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
+      canvas_footer("MEAN");
     }
     if (startTime + 5000 < millis()) break;
   }
@@ -503,8 +546,6 @@ void setupPID(bool init=false) {
 }
 
 
-// Main loop
-
 //////////////////////////////////////////////////
 // put your setup code here, to run once:
 //////////////////////////////////////////////////
@@ -512,16 +553,12 @@ void setup() {
   // (1) Initialize M5StickC object
   M5.begin();
   M5.MPU6886.Init();
-  M5.Axp.ScreenBreath(9);
   //while (!setCpuFrequencyMhz(80));  
+  canvas_init();
 
   // (2) Initialize Preferences
-  MEMORY.begin(MEMORY_NAME);
-  MEMORY.getBytes(MEMORY_KEY, &CONFIG, sizeof(CONFIG));
-  if (CONFIG[_END] != _INIT_[_END]) {
-    MEMORY.putBytes(MEMORY_KEY, &_INIT_, sizeof(CONFIG));
-    MEMORY.getBytes(MEMORY_KEY, &CONFIG, sizeof(CONFIG));
-  }
+  config_init();
+  config_show(); delay(2000);
 
   // (3) Initialize GPIO settings
   pinMode(CH1_IN,INPUT);
@@ -541,7 +578,7 @@ void setup() {
   lpf_init(LPF_MAE,1./500);
   lpf_init(LPF_MSE,1./500);
 
-  // (6) Initialize Zero points
+  // (6) Initialize Zeros
   call_calibration();
 
   // (7) Initialize PID
@@ -570,43 +607,44 @@ void loop() {
   }
 
   // Monitoring variables in every 500msec
-  if (lcd_header("HOME")) {
+  if (canvas_header("HOME")) {
     int ch3_gain;
     // RCV monitor
-    M5.Lcd.println("RCV (usec)");
-    M5.Lcd.printf( " CH1:%6d\n", CH1_USEC);
-    //M5.Lcd.printf( " CH2:%6d\n", CH2_USEC);
-    M5.Lcd.printf( " CH3:%6d\n", CH3_USEC);
+    canvas.println("RCV (us)");
+    canvas.printf( " CH1:%6d\n", CH1_USEC);
+    //canvas.printf( " CH2:%6d\n", CH2_USEC);
+    canvas.printf( " CH3:%6d\n", CH3_USEC);
     // PWM monitor
-    M5.Lcd.println("PWM (Hz)");
-    M5.Lcd.printf( " I:%6d\n", getFrequency(true));
-    M5.Lcd.printf( " O:%6d\n", PWM_HERZ_);
+    canvas.println("PWM (Hz)");
+    canvas.printf( " I:%6d\n", (CH1_USEC>0? getFrequency(true): 0));
+    canvas.printf( " O:%6d\n", PWM_HERZ_);
     // IMU monitor
-    //M5.Lcd.println("IMU");
-    //M5.Lcd.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
-    //M5.Lcd.printf( " V:%8.2f\n", getVerticalG(IMU_ACCEL));
-    //M5.Lcd.printf( " H:%8.2f\n", getHorizontalG(IMU_ACCEL));
-    //M5.Lcd.printf( " S:%8.2f\n", getVibrationalG(IMU_ACCEL));
-    //M5.Lcd.println("OMEGA (rad/s)");
-    //M5.Lcd.printf( " X:%8.2f\n", IMU_OMEGA[0] *M5.MPU6886.gRes);
-    //M5.Lcd.printf( " Y:%8.2f\n", IMU_OMEGA[1] *M5.MPU6886.gRes);
-    //M5.Lcd.printf( " Z:%8.2f\n", IMU_OMEGA[2] *M5.MPU6886.gRes);
-    //M5.Lcd.println("ACCEL (G)");
-    //M5.Lcd.printf( " X:%8.2f\n", IMU_ACCEL[0]);
-    //M5.Lcd.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
-    //M5.Lcd.printf( " Z:%8.2f\n", IMU_ACCEL[2]);
+    //canvas.println("IMU");
+    //canvas.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
+    //canvas.printf( " V:%8.2f\n", getVerticalG(IMU_ACCEL));
+    //canvas.printf( " H:%8.2f\n", getHorizontalG(IMU_ACCEL));
+    //canvas.printf( " S:%8.2f\n", getVibrationalG(IMU_ACCEL));
+    //canvas.println("OMEGA (rad/s)");
+    //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0] *M5.MPU6886.gRes);
+    //canvas.printf( " Y:%8.2f\n", IMU_OMEGA[1] *M5.MPU6886.gRes);
+    //canvas.printf( " Z:%8.2f\n", IMU_OMEGA[2] *M5.MPU6886.gRes);
+    //canvas.println("ACCEL (G)");
+    //canvas.printf( " X:%8.2f\n", IMU_ACCEL[0]);
+    //canvas.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
+    //canvas.printf( " Z:%8.2f\n", IMU_ACCEL[2]);
     // PID monitor
-    M5.Lcd.println("PID (0-100)");
-    M5.Lcd.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
-    M5.Lcd.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
-    M5.Lcd.printf( " P:%8.2f\n", myPID.GetPterm());
-    M5.Lcd.printf( " I:%8.2f\n", myPID.GetIterm());
-    M5.Lcd.printf( " D:%8.2f\n", myPID.GetDterm());
+    canvas.println("PID (0-100)");
+    canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
+    canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
+    canvas.printf( " P:%8.2f\n", myPID.GetPterm());
+    canvas.printf( " I:%8.2f\n", myPID.GetIterm());
+    canvas.printf( " D:%8.2f\n", myPID.GetDterm());
     // ERR monitor
-    M5.Lcd.println("ERR (16bit)");
-    M5.Lcd.printf( " ME:%9.2f\n", ME);
-    M5.Lcd.printf( " MAE:%8.2f\n", MAE);
-    M5.Lcd.printf( " RMSE:%7.2f\n", sqrt(MSE));
+    canvas.println("ERR (16bit)");
+    canvas.printf( " ME:%9.2f\n", ME);
+    canvas.printf( " MAE:%8.2f\n", MAE);
+    canvas.printf( " RMSE:%7.2f\n", sqrt(MSE));
+    canvas_footer("HOME");
     // CH3 => CONFIG
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
     ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
