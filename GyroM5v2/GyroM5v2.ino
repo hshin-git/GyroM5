@@ -147,7 +147,7 @@ const char CONFIG_KEY[] = "CONF";
 const char *KEYS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
 const int _INIT_[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
 int CONFIG[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-enum _INDEX_ {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
+enum _INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
 const int SIZE = sizeof(CONFIG)/sizeof(int);
 const int TAIL = 3; // number of items after "PWM"
 
