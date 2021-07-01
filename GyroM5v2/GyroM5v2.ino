@@ -594,7 +594,7 @@ void IRAM_ATTR loopPID() {
 void setupPID(bool init=false) {
   float Kp = (CONFIG[_KP]/50.);
   float Ki = (CONFIG[_KI]/100.);
-  float Kd = (CONFIG[_KD]/5000.);
+  float Kd = (CONFIG[_KD]/2000.);
   int Min = CONFIG[_MIN]-CH1US_MEAN;
   int Max = CONFIG[_MAX]-CH1US_MEAN;
 
