@@ -15,7 +15,7 @@
 #include <WiFiClient.h>
 #include <Preferences.h>
 #include <QuickPID.h>
-#include <Ticker.h>
+//#include <Ticker.h>
 
 
 //////////////////////////////////////////////////
@@ -40,6 +40,7 @@ const int PWM_WAIT = PWM_CYCL + 1000;
 //
 const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
+const int PULSE_AMP = (PULSE_MAX-PULSE_MIN)/2;
 const int RANGE_MAX = 120;
 
 // GPIO parameters
@@ -82,17 +83,13 @@ void canvas_init(void) {
   M5.Lcd.setRotation(0);
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
-void canvas_clear(void) {
-  canvas.fillScreen(BG_COLOR);
-  canvas.setTextColor(FG_COLOR,BG_COLOR);
-  canvas.setCursor(0,0);
-}
-bool canvas_header(char *text, bool forced=false) {
+bool canvas_header(char *text, int msec) {
   static long lastTime = 0;
-  if (forced || (lastTime + 500 < millis())) {
-    canvas_clear();
+  if (lastTime + msec < millis()) {
+    canvas.fillScreen(BG_COLOR);
+    canvas.setCursor(0,0);
     canvas.setTextColor(BG_COLOR,FG_COLOR);
-    canvas.printf("    %s    \n",text);
+    canvas.printf(" %-12s\n",text);
     canvas.setTextColor(FG_COLOR,BG_COLOR);
     lastTime = millis();
     return true;
@@ -101,16 +98,90 @@ bool canvas_header(char *text, bool forced=false) {
 }
 bool canvas_footer(char *text) {
   canvas.setTextColor(BG_COLOR,FG_COLOR);
-  canvas.printf("    %s    \n",text);
+  canvas.printf(" %-12s\n",text);
   canvas.setTextColor(FG_COLOR,BG_COLOR);
   canvas.pushSprite(0,0);
 }
 
 
 //////////////////////////////////////////////////
+// Ring buffer to draw time series
+//////////////////////////////////////////////////
+const int RING_SIZE = 512;
+int RING_Input[RING_SIZE];
+int RING_Output[RING_SIZE];
+int RING_Setpoint[RING_SIZE];
+void ring_init(int *buf, int len) {
+  int *A = buf+2;
+  int N = len-2;
+  int p = 0;
+  buf[0] = N;
+  buf[1] = p;
+  for (int i=0; i<N; i++) A[i] = 0;
+}
+void ring_put(int *buf, int val) {
+  int *A = buf+2;
+  int N = buf[0];
+  int p = buf[1];
+  A[p] = val;
+  buf[1] = (p+1)%N;
+}
+void ring_draw(int *buf, int pos=0, char *txt=NULL, int color=TFT_WHITE, int top=80, int left=0, int width=80, int height=80) {
+  int *A = buf+2;
+  int N = buf[0];
+  int p = buf[1];
+  for (int n=0; n<N-1; n++) {
+    int v0 = A[p];
+    int v1 = A[(p+1)%N];
+    int x0 = map(n, 0,N, 0,width);
+    int x1 = map(n+1, 0,N, 0,width);
+    int y0 = map(v0, -PULSE_AMP,PULSE_AMP, top+height,top);
+    int y1 = map(v1, -PULSE_AMP,PULSE_AMP, top+height,top);
+    canvas.drawLine(x0,y0,x1,y1,color);
+    p = (p+1)%N;
+  }
+  if (txt) {
+    canvas.setCursor(8*(3*pos+1),top);
+    canvas.setTextColor(color);
+    canvas.printf("%3s",txt);
+    canvas.setTextColor(FG_COLOR);
+    // reset cursor in ad-hoc manner
+    canvas.setCursor(0,80-8);
+  }
+}
+bool ring_sample(int msec) {
+  static long lastTime = 0;
+  if (lastTime + msec < millis()) {
+    lastTime = millis();
+    return true;
+  }
+  return false;
+}
+float ring_MAE(int *bf1, int *bf2) {
+  int *A1 = bf1+2;
+  int *A2 = bf2+2; 
+  int N = bf1[0];
+  float MAE = 0.0;
+  for (int n=0; n<N; n++) {
+    MAE += abs(A1[n]-A2[n]);
+  }
+  return MAE/N;
+}
+float ring_RMSE(int *bf1, int *bf2) {
+  int *A1 = bf1+2;
+  int *A2 = bf2+2; 
+  int N = bf1[0];
+  float MSE = 0.0;
+  for (int n=0; n<N; n++) {
+    MSE += (A1[n]-A2[n])*(A1[n]-A2[n]);
+  }
+  return sqrt(MSE/N);
+}
+
+//////////////////////////////////////////////////
 // 5Vin watcher
 //////////////////////////////////////////////////
-void axp_halt(){
+void _axp_halt(){
   Wire1.beginTransmission(0x34);
   Wire1.write(0x32);
   Wire1.endTransmission();
@@ -128,7 +199,7 @@ void vin_watch() {
   //Serial.printf("vin,usb = %f,%f\n",vin,usb);
   if ( vin < 3.0 && usb < 3.0 ) {
     if ( lastTime + 5000 < millis() ) {
-      axp_halt();
+      _axp_halt();
     }
   } else {
     lastTime = millis();
@@ -167,9 +238,10 @@ void config_gets() {
   STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
 }
 void config_show() {
-  canvas_header("CONF");
-  for (int n=0; n<SIZE; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
-  canvas_footer("CONF");
+  if (canvas_header("CONF",0)) {
+    for (int n=0; n<SIZE; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
+    canvas_footer("CONF");
+  }
 }
 
 
@@ -273,7 +345,7 @@ void configLoop() {
 void config_by_wifi() {
   //WIFI_SERVER.begin();
   //
-  if (canvas_header("WIFI",true)) {
+  if (canvas_header("WIFI",0)) {
     char url[32];
     canvas.println("[A] CANCEL");
     canvas.println("SSID:"); canvas.printf(" %s\n",WIFI_SSID);
@@ -310,7 +382,7 @@ void config_ch1ends() {
       val = map(ch1, 0,PWM_CYCL_, 0,PWM_DMAX);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
       ch1_output(ch1);
-      if (canvas_header("ENDS")) {
+      if (canvas_header("ENDS",500)) {
         canvas.println((n? "LEFT": "RIGHT"));
         canvas.printf("[A] SAVE\n");
         canvas.printf("[B] CANCEL\n");
@@ -348,36 +420,36 @@ void config_ch1ends() {
 //////////////////////////////////////////////////
 // Low/High Pass Filters
 //////////////////////////////////////////////////
-float LPF_ME[4];
-float LPF_MAE[4];
-float LPF_MSE[4];
-// LPF
-void lpf_init(float buf[],float alpha) {
-  buf[0] = 0.;
-  buf[1] = alpha;
-}
-float lpf_update(float buf[],float x) {
-  float yp = buf[0];
-  float alpha = buf[1];
-  float y = alpha*x + (1.-alpha)*yp;
-  buf[0] = y;
-  return y;
-}
-// HPF
-void hpf_init(float buf[],float alpha) {
-  buf[0] = 0.;
-  buf[1] = 0.;
-  buf[2] = alpha;
-}
-float hpf_update(float buf[],float x) {
-  float yp = buf[0];
-  float xp = buf[1];
-  float alpha = buf[2];
-  float y = alpha*(x - xp) + alpha*yp;
-  buf[0] = y;
-  buf[1] = x;
-  return y;
-}
+//float LPF_ME[4];
+//float LPF_MAE[4];
+//float LPF_MSE[4];
+//// LPF
+//void lpf_init(float buf[],float alpha) {
+//  buf[0] = 0.;
+//  buf[1] = alpha;
+//}
+//float lpf_update(float buf[],float x) {
+//  float yp = buf[0];
+//  float alpha = buf[1];
+//  float y = alpha*x + (1.-alpha)*yp;
+//  buf[0] = y;
+//  return y;
+//}
+//// HPF
+//void hpf_init(float buf[],float alpha) {
+//  buf[0] = 0.;
+//  buf[1] = 0.;
+//  buf[2] = alpha;
+//}
+//float hpf_update(float buf[],float x) {
+//  float yp = buf[0];
+//  float xp = buf[1];
+//  float alpha = buf[2];
+//  float y = alpha*(x - xp) + alpha*yp;
+//  buf[0] = y;
+//  buf[1] = x;
+//  return y;
+//}
 
 
 //////////////////////////////////////////////////
@@ -405,7 +477,7 @@ void call_calibration(void) {
   long startTime;
   // wait
   for (int n=0; n<10; n++) {
-    if (canvas_header("WAIT",n==0)) {
+    if (canvas_header("WAIT", n? 500: 0)) {
       canvas.printf(" N:%8d\n",n);
       canvas_footer("WAIT");
     }
@@ -425,7 +497,7 @@ void call_calibration(void) {
       ACCEL_MEAN[i] = (n==0? accel[i]: (ACCEL_MEAN[i] + accel[i])/2.);
     }
     //
-    if (canvas_header("MEAN",n==0)) {
+    if (canvas_header("INIT", n? 500: 0)) {
       canvas.println("PWM (Hz)");
       canvas.printf( " F:%8d\n",hrz);
       canvas.println("CH1 (us)");
@@ -438,7 +510,7 @@ void call_calibration(void) {
       canvas.printf( " X:%8.2f\n",ACCEL_MEAN[0]);
       canvas.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
       canvas.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
-      canvas_footer("MEAN");
+      canvas_footer("INIT");
     }
     if (startTime + 5000 < millis()) break;
   }
@@ -490,8 +562,7 @@ int CH3_USEC = 0;
 float IMU_OMEGA[3];
 float IMU_ACCEL[3];
 
-
-// PID parameter
+// PID loop
 void IRAM_ATTR loopPID() {
   int ch1_usec;
   float yrate;
@@ -506,7 +577,7 @@ void IRAM_ATTR loopPID() {
   yrate = getYawRate(IMU_OMEGA);
   
   // Compute PID
-  Setpoint = (CH1_USEC - CH1US_MEAN);
+  Setpoint = CH1_USEC>0? CH1_USEC - CH1US_MEAN: 0.0;
   Input = Kg * yrate;
   myPID.Compute();
   ch1_usec = constrain(CH1US_MEAN + Output, CONFIG[_MIN],CONFIG[_MAX]);
@@ -516,33 +587,34 @@ void IRAM_ATTR loopPID() {
 }
 
 // PID timer
-Ticker tickerPID;
-hw_timer_t *timerPID = NULL;
-//
+//Ticker tickerPID;
+//hw_timer_t *timerPID = NULL;
+
+// PID setup
 void setupPID(bool init=false) {
-  float ratio = getFrequency(true)/50.;
   float Kp = (CONFIG[_KP]/50.);
-  float Ki = (CONFIG[_KI]/200.)/ratio;
-  float Kd = (CONFIG[_KD]/2000.);
+  float Ki = (CONFIG[_KI]/100.);
+  float Kd = (CONFIG[_KD]/5000.);
   int Min = CONFIG[_MIN]-CH1US_MEAN;
   int Max = CONFIG[_MAX]-CH1US_MEAN;
+
+  myPID.SetTunings(Kp,Ki,Kd);
+  myPID.SetOutputLimits(Min,Max);
   
   if (init) {
     //int CycleInUs = 1000000/CONFIG[_PWM];
     int CycleInUs = 1000000/getFrequency(true);
-    myPID.SetMode(QuickPID::TIMER);
     myPID.SetSampleTimeUs(CycleInUs);
-    
-    // PID timer is in trouble => hangup
+    myPID.SetMode(QuickPID::AUTOMATIC);
+    //myPID.SetMode(QuickPID::TIMER);
+
+    // PID timer is not working
     //tickerPID.attach(CycleInUs/1000000.0,loopPID);
     //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
-    //timerAttachInterrupt(timerPID, &loopPID, true);
+    //timerAttachInterrupt(timerPID, loopPID, true);
     //timerAlarmWrite(timerPID, CycleInUs, true);
     //timerAlarmEnable(timerPID);
   }
-  
-  myPID.SetTunings(Kp,Ki,Kd);
-  myPID.SetOutputLimits(Min,Max);
 }
 
 
@@ -556,7 +628,7 @@ void setup() {
   //while (!setCpuFrequencyMhz(80));  
   canvas_init();
 
-  // (2) Initialize Preferences
+  // (2) Initialize configuration
   config_init();
   config_show(); delay(2000);
 
@@ -573,18 +645,18 @@ void setup() {
   IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
 
-  // (5) Initialize Filters
-  lpf_init(LPF_ME,1./500);
-  lpf_init(LPF_MAE,1./500);
-  lpf_init(LPF_MSE,1./500);
+  // (5) Initialize ring buffer
+  ring_init(RING_Input,RING_SIZE);
+  ring_init(RING_Output,RING_SIZE);
+  ring_init(RING_Setpoint,RING_SIZE);
 
-  // (6) Initialize Zeros
+  // (6) Initialize zeros/means
   call_calibration();
 
   // (7) Initialize PID
   setupPID(true);
 
-  // (8) Initialize Others
+  // (8) Initialize others
   //Serial.begin(115200);
 }
 
@@ -594,20 +666,20 @@ void setup() {
 //////////////////////////////////////////////////
 void loop() {
   float ME,MAE,MSE;
-  // Fetch new Setpoint/Input and compute PID
+  // Fetch new Setpoint/Input and compute Output by PID
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
   loopPID();
-
-  // Moving statistics in Error = Stpoint - Input
-  if (getVibrationalG(IMU_ACCEL)>0.2 & getYawRate(IMU_OMEGA)>0.2) {
-    float Error = Setpoint - Input;
-    ME = lpf_update(LPF_ME,Error);
-    MAE = lpf_update(LPF_MAE,abs(Error));
-    MSE = lpf_update(LPF_MSE,Error*Error);
+  getFrequency();
+  
+  // Sample PID variables in every 20msec
+  if (ring_sample(20)){
+    ring_put(RING_Input,Input);
+    ring_put(RING_Output,Output);
+    ring_put(RING_Setpoint,Setpoint);
   }
 
-  // Monitoring variables in every 500msec
-  if (canvas_header("HOME")) {
+  // Monitor variables in every 500msec
+  if (canvas_header("HOME",500)) {
     int ch3_gain;
     // RCV monitor
     canvas.println("RCV (us)");
@@ -616,8 +688,8 @@ void loop() {
     canvas.printf( " CH3:%6d\n", CH3_USEC);
     // PWM monitor
     canvas.println("PWM (Hz)");
-    canvas.printf( " I:%6d\n", (CH1_USEC>0? getFrequency(true): 0));
-    canvas.printf( " O:%6d\n", PWM_HERZ_);
+    canvas.printf( " IN :%6d\n", (CH1_USEC>0? getFrequency(true): 0));
+    canvas.printf( " OUT:%6d\n", PWM_HERZ_);
     // IMU monitor
     //canvas.println("IMU");
     //canvas.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
@@ -633,18 +705,23 @@ void loop() {
     //canvas.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
     //canvas.printf( " Z:%8.2f\n", IMU_ACCEL[2]);
     // PID monitor
-    canvas.println("PID (0-100)");
-    canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
-    canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
-    canvas.printf( " P:%8.2f\n", myPID.GetPterm());
-    canvas.printf( " I:%8.2f\n", myPID.GetIterm());
-    canvas.printf( " D:%8.2f\n", myPID.GetDterm());
+    //canvas.println("PID (0-100)");
+    //canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
+    //canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
+    //canvas.printf( " P:%8.2f\n", myPID.GetPterm());
+    //canvas.printf( " I:%8.2f\n", myPID.GetIterm());
+    //canvas.printf( " D:%8.2f\n", myPID.GetDterm());
     // ERR monitor
-    canvas.println("ERR (16bit)");
-    canvas.printf( " ME:%9.2f\n", ME);
-    canvas.printf( " MAE:%8.2f\n", MAE);
-    canvas.printf( " RMSE:%7.2f\n", sqrt(MSE));
+    canvas.println("PID (us)");
+    canvas.printf( " MAE:%6.1f\n", ring_MAE(RING_Setpoint,RING_Input));
+    //canvas.printf( "RMSE:%6.1f\n", ring_RMSE(RING_Setpoint,RING_Intput));
+    // RGB graph
+    ring_draw(RING_Setpoint,0,"CH1",TFT_CYAN);
+    ring_draw(RING_Output,1,"SRV",TFT_MAGENTA);
+    ring_draw(RING_Input,2,"YAW",TFT_YELLOW);
+    // LCD draw
     canvas_footer("HOME");
+    
     // CH3 => CONFIG
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
     ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
@@ -667,7 +744,4 @@ void loop() {
   if (M5.BtnA.isPressed()) config_by_wifi();
   else
   if (M5.BtnB.isPressed()) config_ch1ends();
-
-  // Count input PWM frequency
-  getFrequency();
 }
