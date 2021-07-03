@@ -29,19 +29,21 @@ const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
 
 // PWM parameters
-const int PWM_HERZ = 50;
-const int PWM_BITS = 16;
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
 //
+const int PWM_BITS = 16;
 const int PWM_DMAX = (1<<PWM_BITS);
-const int PWM_CYCL = 1000000/PWM_HERZ;
-const int PWM_WAIT = PWM_CYCL + 1000;
+const int PWM_WAIT = (1000000/50) + 1000;
 //
 const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
 const int PULSE_AMP = (PULSE_MAX-PULSE_MIN)/2;
-const int RANGE_MAX = 120;
+
+// CH3
+const int GAIN_MIN = 0;
+const int GAIN_MAX = 100;
+const int GAIN_AMP = 120;
 
 // GPIO parameters
 const int CH1_IN = 26;
@@ -56,18 +58,19 @@ const int DELAY = 300;
 //////////////////////////////////////////////////
 // PWM output frequency
 //////////////////////////////////////////////////
-int PWM_HERZ_ = 50;
-int PWM_CYCL_ = 1000000/PWM_HERZ_;
+int PWM_HERZ = 50;
+int PWM_CYCL = 1000000/PWM_HERZ;
+//
 void ch1_setHerz(int herz) {
   if (herz<50 || herz>500) return;
-  PWM_HERZ_ = herz;
-  PWM_CYCL_ = 1000000/PWM_HERZ_;
-  ledcSetup(PWM_CH1,PWM_HERZ_,PWM_BITS);
+  PWM_HERZ = herz;
+  PWM_CYCL = 1000000/PWM_HERZ;
+  ledcSetup(PWM_CH1,PWM_HERZ,PWM_BITS);
   ledcAttachPin(CH1_OUT,PWM_CH1);
   ledcWrite(PWM_CH1,0);
 }
 void ch1_output(int usec) {
-  int duty = map(usec, 0,PWM_CYCL_, 0,PWM_DMAX);
+  int duty = map(usec, 0,PWM_CYCL, 0,PWM_DMAX);
   ledcWrite(PWM_CH1,(usec>0? duty: 0));
 }
 
@@ -76,8 +79,9 @@ void ch1_output(int usec) {
 // LCD helpers
 //////////////////////////////////////////////////
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
-int BG_COLOR = TFT_BLACK;
-int FG_COLOR = TFT_WHITE;
+const int BG_COLOR = TFT_BLACK;
+const int FG_COLOR = TFT_WHITE;
+//
 void canvas_init(void) {
   M5.Axp.ScreenBreath(8);
   M5.Lcd.setRotation(0);
@@ -105,51 +109,99 @@ bool canvas_footer(char *text) {
 
 
 //////////////////////////////////////////////////
-// Ring buffer to draw time series
+// Ring buffer to store and draw sampled values
 //////////////////////////////////////////////////
-const int RING_SIZE = 512;
-int RING_Input[RING_SIZE];
-int RING_Output[RING_SIZE];
-int RING_Setpoint[RING_SIZE];
-void ring_init(int *buf, int len) {
-  int *A = buf+2;
-  int N = len-2;
-  int p = 0;
-  buf[0] = N;
-  buf[1] = p;
-  for (int i=0; i<N; i++) A[i] = 0;
+// ring buffer
+const int RING_MAX = 4;
+struct {
+  int IDS = 0;
+  int *ARRAY[RING_MAX];
+  int HEAD[RING_MAX];
+  char *TEXT[RING_MAX];
+  int COLOR[RING_MAX];
+} RING;
+
+// data storage
+const int DATA_MSEC = 100; // sampling pediod
+const int DATA_SIZE = 4096; // sampling storage size
+int DATA_Setpoint[DATA_SIZE];
+int DATA_Output[DATA_SIZE];
+int DATA_Input[DATA_SIZE];
+
+//
+int data_init(int *buf, const char *txt, int col=TFT_WHITE) {
+  int id = RING.IDS;
+  if (id < RING_MAX) {
+    RING.ARRAY[id] = buf;
+    RING.HEAD[id] = 0;
+    RING.TEXT[id] = strdup(txt);
+    RING.COLOR[id] = col;
+    for (int i=0; i<DATA_SIZE; i++) buf[i] = 0;
+    RING.IDS = id+1;
+    return id;
+  }
+  return -1;
 }
-void ring_put(int *buf, int val) {
-  int *A = buf+2;
-  int N = buf[0];
-  int p = buf[1];
+void data_put(int id, int val) {
+  int N = DATA_SIZE;
+  int *A = RING.ARRAY[id];
+  int p = RING.HEAD[id];
   A[p] = val;
-  buf[1] = (p+1)%N;
+  RING.HEAD[id] = (p+1)%N;
 }
-void ring_draw(int *buf, int pos=0, char *txt=NULL, int color=TFT_WHITE, int top=80, int left=0, int width=80, int height=80) {
-  int *A = buf+2;
-  int N = buf[0];
-  int p = buf[1];
-  for (int n=0; n<N-1; n++) {
-    int v0 = A[p];
-    int v1 = A[(p+1)%N];
-    int x0 = map(n, 0,N, 0,width);
-    int x1 = map(n+1, 0,N, 0,width);
-    int y0 = map(v0, -PULSE_AMP,PULSE_AMP, top+height,top);
-    int y1 = map(v1, -PULSE_AMP,PULSE_AMP, top+height,top);
-    canvas.drawLine(x0,y0,x1,y1,color);
-    p = (p+1)%N;
-  }
-  if (txt) {
-    canvas.setCursor(8*(3*pos+1),top);
-    canvas.setTextColor(color);
-    canvas.printf("%3s",txt);
-    canvas.setTextColor(FG_COLOR);
-    // reset cursor in ad-hoc manner
-    canvas.setCursor(0,80-8);
+void data_draw(int past, int top=80, int left=0, int width=80, int height=80) {
+  int N = DATA_SIZE;
+  int PAST = past<=0? N: min(N,past);
+  
+  for (int id=0; id<RING.IDS; id++) {
+    int *A = RING.ARRAY[id];
+    int p = RING.HEAD[id];
+    char *txt = RING.TEXT[id];
+    int color = RING.COLOR[id];
+    // plot
+    p = (p-PAST+N)%N;
+    for (int n=0; n<PAST-1; n++) {
+      int v0 = A[p];
+      int v1 = A[(p+1)%N];
+      int x0 = map(n, 0,PAST, 0,width);
+      int x1 = map(n+1, 0,PAST, 0,width);
+      int y0 = map(v0, -PULSE_AMP,PULSE_AMP, top+height,top);
+      int y1 = map(v1, -PULSE_AMP,PULSE_AMP, top+height,top);
+      canvas.drawLine(x0,y0,x1,y1,color);
+      p = (p+1)%N;
+    }
+    // legend
+    if (txt) {
+      canvas.setCursor(8*(3*id+1),top);
+      canvas.setTextColor(color);
+      canvas.printf("%3s",txt);
+      canvas.setTextColor(FG_COLOR);
+      // reset cursor in ad-hoc manner
+      canvas.setCursor(0,80-8);
+    }
   }
 }
-bool ring_sample(int msec) {
+void data_to_csv(WiFiClient *cl) {
+  int N = DATA_SIZE;
+  int p = RING.HEAD[0];
+  // head
+  cl->print("SEC,");
+  for (int id=0; id<RING.IDS; id++) {
+    cl->print(RING.TEXT[id]);
+    cl->print(id<RING.IDS-1? ",": "\n");
+  }
+  // data
+  for (int n=0; n<N; n++) {
+    cl->printf("%.2f,", n*DATA_MSEC/1000.0);
+    for (int id=0; id<RING.IDS; id++) {
+      int *A = RING.ARRAY[id];
+      cl->print(A[p]);
+      cl->print(id<RING.IDS-1? ",": "\n");
+    }
+    p = (p+1)%N;  
+  }
+}
+bool data_sample(int msec) {
   static long lastTime = 0;
   if (lastTime + msec < millis()) {
     lastTime = millis();
@@ -157,26 +209,35 @@ bool ring_sample(int msec) {
   }
   return false;
 }
-float ring_MAE(int *bf1, int *bf2) {
-  int *A1 = bf1+2;
-  int *A2 = bf2+2; 
-  int N = bf1[0];
+float data_MAE(int id1, int id2, int past=0) {
+  int N = DATA_SIZE;  
+  int *A1 = RING.ARRAY[id1];
+  int *A2 = RING.ARRAY[id2];
+  int p = RING.HEAD[id1];
+  int PAST = past<=0? N: min(N,past);
   float MAE = 0.0;
-  for (int n=0; n<N; n++) {
-    MAE += abs(A1[n]-A2[n]);
+  p = (p-PAST+N)%N;
+  for (int n=0; n<PAST; n++) {
+    MAE += abs(A1[p]-A2[p]);
+    p = (p+1)%N;
   }
   return MAE/N;
 }
-float ring_RMSE(int *bf1, int *bf2) {
-  int *A1 = bf1+2;
-  int *A2 = bf2+2; 
-  int N = bf1[0];
+float data_RMSE(int id1, int id2, int past=0) {
+  int N = DATA_SIZE;  
+  int *A1 = RING.ARRAY[id1];
+  int *A2 = RING.ARRAY[id2];
+  int p = RING.HEAD[id1];
+  int PAST = past<=0? N: min(N,past);
   float MSE = 0.0;
-  for (int n=0; n<N; n++) {
-    MSE += (A1[n]-A2[n])*(A1[n]-A2[n]);
+  p = (p-PAST+N)%N;
+  for (int n=0; n<PAST; n++) {
+    MSE += (A1[p]-A2[p])*(A1[p]-A2[p]);
+    p = (p+1)%N;   
   }
   return sqrt(MSE/N);
 }
+
 
 //////////////////////////////////////////////////
 // 5Vin watcher
@@ -265,7 +326,8 @@ const char HTML_TEMPLATE[] = R"(
 <tr><td>CH3</td><td><input type='range' name='CH3' min='0' max='5' step='1' value='0' oninput='onInput(this)' /></td><td><span id='CH3'>0</span></td><td>0:TB, 1:KG, 2:KP, 3:KI, 4:KD, 5:NO</td></tr>
 <tr><td>PWM</td><td><input type='range' name='PWM' min='50' max='400' step='50' value='50' oninput='onInput(this)' /></td><td><span id='PWM'>50</span><td>PWM frequency (Hz)</td></tr>
 </table>
-<input type='submit' value='submit' />
+<input type='submit' value='save' />
+<input type='button' value='data' onclick='window.location=window.location.href.split("?")[0]+"csv";' />
 <input type='button' value='reload' onclick='window.location=window.location.href.split("?")[0];' />
 </form>
 </body>
@@ -329,6 +391,14 @@ void configLoop() {
             client.println(HTML_BUFFER);
             configAccepted = true;
             break;
+          } else if (currentLine.indexOf("GET /csv") == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/csv; charset=utf-8;");
+            client.println("Content-Disposition:attachment; filename=GyroM5.csv");
+            client.println();
+            data_to_csv(&client);
+            client.println();
+            break;
           } else {
             currentLine = "";
           }
@@ -379,7 +449,7 @@ void config_ch1ends() {
     delay(DELAY);
     while (true) {
       ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-      val = map(ch1, 0,PWM_CYCL_, 0,PWM_DMAX);
+      val = map(ch1, 0,PWM_CYCL, 0,PWM_DMAX);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
       ch1_output(ch1);
       if (canvas_header("ENDS",500)) {
@@ -396,6 +466,7 @@ void config_ch1ends() {
         if (ch1>0) CONFIG[(n? _MAX: _MIN)] = ch1;
         break;
       }
+      else
       if (M5.BtnB.isPressed()) {
         ch1_output(0);
         delay(DELAY);
@@ -593,10 +664,10 @@ void IRAM_ATTR loopPID() {
 // PID setup
 void setupPID(bool init=false) {
   float Kp = (CONFIG[_KP]/50.);
-  float Ki = (CONFIG[_KI]/100.);
-  float Kd = (CONFIG[_KD]/2000.);
-  int Min = CONFIG[_MIN]-CH1US_MEAN;
-  int Max = CONFIG[_MAX]-CH1US_MEAN;
+  float Ki = (CONFIG[_KI]/500.);
+  float Kd = (CONFIG[_KD]/5000.);
+  int Min = int(CONFIG[_MIN] - CH1US_MEAN);
+  int Max = int(CONFIG[_MAX] - CH1US_MEAN);
 
   myPID.SetTunings(Kp,Ki,Kd);
   myPID.SetOutputLimits(Min,Max);
@@ -646,9 +717,10 @@ void setup() {
   WIFI_SERVER.begin();
 
   // (5) Initialize ring buffer
-  ring_init(RING_Input,RING_SIZE);
-  ring_init(RING_Output,RING_SIZE);
-  ring_init(RING_Setpoint,RING_SIZE);
+  data_init(DATA_Setpoint,"CH1",TFT_CYAN);
+  data_init(DATA_Output,"SRV",TFT_MAGENTA);
+  data_init(DATA_Input,"YAW",TFT_YELLOW);
+
 
   // (6) Initialize zeros/means
   call_calibration();
@@ -665,17 +737,16 @@ void setup() {
 // put your main code here, to run repeatedly:
 //////////////////////////////////////////////////
 void loop() {
-  float ME,MAE,MSE;
   // Fetch new Setpoint/Input and compute Output by PID
   CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
   loopPID();
   getFrequency();
   
   // Sample PID variables in every 20msec
-  if (ring_sample(20)){
-    ring_put(RING_Input,Input);
-    ring_put(RING_Output,Output);
-    ring_put(RING_Setpoint,Setpoint);
+  if (data_sample(DATA_MSEC)){
+    data_put(0,Setpoint);
+    data_put(1,Output);
+    data_put(2,Input);
   }
 
   // Monitor variables in every 500msec
@@ -689,17 +760,12 @@ void loop() {
     // PWM monitor
     canvas.println("PWM (Hz)");
     canvas.printf( " IN :%6d\n", (CH1_USEC>0? getFrequency(true): 0));
-    canvas.printf( " OUT:%6d\n", PWM_HERZ_);
+    canvas.printf( " OUT:%6d\n", PWM_HERZ);
     // IMU monitor
-    //canvas.println("IMU");
-    //canvas.printf( " Y:%8.2f\n", getYawRate(IMU_OMEGA));
-    //canvas.printf( " V:%8.2f\n", getVerticalG(IMU_ACCEL));
-    //canvas.printf( " H:%8.2f\n", getHorizontalG(IMU_ACCEL));
-    //canvas.printf( " S:%8.2f\n", getVibrationalG(IMU_ACCEL));
     //canvas.println("OMEGA (rad/s)");
-    //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0] *M5.MPU6886.gRes);
-    //canvas.printf( " Y:%8.2f\n", IMU_OMEGA[1] *M5.MPU6886.gRes);
-    //canvas.printf( " Z:%8.2f\n", IMU_OMEGA[2] *M5.MPU6886.gRes);
+    //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]*M5.MPU6886.gRes);
+    //canvas.printf( " Y:%8.2f\n", IMU_OMEGA[1]*M5.MPU6886.gRes);
+    //canvas.printf( " Z:%8.2f\n", IMU_OMEGA[2]*M5.MPU6886.gRes);
     //canvas.println("ACCEL (G)");
     //canvas.printf( " X:%8.2f\n", IMU_ACCEL[0]);
     //canvas.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
@@ -708,24 +774,19 @@ void loop() {
     //canvas.println("PID (0-100)");
     //canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
     //canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
-    //canvas.printf( " P:%8.2f\n", myPID.GetPterm());
-    //canvas.printf( " I:%8.2f\n", myPID.GetIterm());
-    //canvas.printf( " D:%8.2f\n", myPID.GetDterm());
     // ERR monitor
     canvas.println("PID (us)");
-    canvas.printf( " MAE:%6.1f\n", ring_MAE(RING_Setpoint,RING_Input));
-    //canvas.printf( "RMSE:%6.1f\n", ring_RMSE(RING_Setpoint,RING_Intput));
+    canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,int(10.0*1000/DATA_MSEC)));
+    //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,int(10.0*1000/DATA_MSEC)));
     // RGB graph
-    ring_draw(RING_Setpoint,0,"CH1",TFT_CYAN);
-    ring_draw(RING_Output,1,"SRV",TFT_MAGENTA);
-    ring_draw(RING_Input,2,"YAW",TFT_YELLOW);
+    data_draw(int(10.0*1000/DATA_MSEC));
     // LCD draw
     canvas_footer("HOME");
     
     // CH3 => CONFIG
     CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
-    ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -RANGE_MAX,RANGE_MAX);
-    ch3_gain = constrain(ch3_gain,0,100);
+    ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -GAIN_AMP,GAIN_AMP);
+    ch3_gain = constrain(ch3_gain, GAIN_MIN,GAIN_MAX);
     switch (CONFIG[_CH3]) {
       case 1: CONFIG[_KG] = ch3_gain; break;
       case 2: CONFIG[_KP] = ch3_gain; break;
