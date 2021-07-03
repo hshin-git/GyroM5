@@ -129,12 +129,12 @@ int DATA_Output[DATA_SIZE];
 int DATA_Input[DATA_SIZE];
 
 //
-int data_init(int *buf, const char *txt, int col=TFT_WHITE) {
+int data_init(int *buf, char *txt, int col=TFT_WHITE) {
   int id = RING.IDS;
   if (id < RING_MAX) {
     RING.ARRAY[id] = buf;
     RING.HEAD[id] = 0;
-    RING.TEXT[id] = strdup(txt);
+    RING.TEXT[id] = txt;
     RING.COLOR[id] = col;
     for (int i=0; i<DATA_SIZE; i++) buf[i] = 0;
     RING.IDS = id+1;
@@ -149,7 +149,7 @@ void data_put(int id, int val) {
   A[p] = val;
   RING.HEAD[id] = (p+1)%N;
 }
-void data_draw(int past, int top=80, int left=0, int width=80, int height=80) {
+void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, int height=80) {
   int N = DATA_SIZE;
   int PAST = past<=0? N: min(N,past);
   
@@ -177,9 +177,13 @@ void data_draw(int past, int top=80, int left=0, int width=80, int height=80) {
       canvas.printf("%3s",txt);
       canvas.setTextColor(FG_COLOR);
       // reset cursor in ad-hoc manner
-      canvas.setCursor(0,80-8);
+      canvas.setCursor(0,8*lastLine);
     }
   }
+}
+void data_grid(int v, int top=80, int left=0, int width=80, int height=80) {
+  int y = map(v, -PULSE_AMP,PULSE_AMP, top+height,top);
+  canvas.drawLine(left,y, left+width,y,FG_COLOR);
 }
 void data_to_csv(WiFiClient *cl) {
   int N = DATA_SIZE;
@@ -326,9 +330,9 @@ const char HTML_TEMPLATE[] = R"(
 <tr><td>CH3</td><td><input type='range' name='CH3' min='0' max='5' step='1' value='0' oninput='onInput(this)' /></td><td><span id='CH3'>0</span></td><td>0:TB, 1:KG, 2:KP, 3:KI, 4:KD, 5:NO</td></tr>
 <tr><td>PWM</td><td><input type='range' name='PWM' min='50' max='400' step='50' value='50' oninput='onInput(this)' /></td><td><span id='PWM'>50</span><td>PWM frequency (Hz)</td></tr>
 </table>
-<input type='submit' value='save' />
-<input type='button' value='data' onclick='window.location=window.location.href.split("?")[0]+"csv";' />
-<input type='button' value='reload' onclick='window.location=window.location.href.split("?")[0];' />
+<input type='submit' value='upload setting' />
+<input type='button' value='download data' onclick='window.location=window.location.href.split("?")[0]+"csv";' />
+<input type='button' value='reload setting' onclick='window.location=window.location.href.split("?")[0];' />
 </form>
 </body>
 <script>
@@ -394,7 +398,7 @@ void configLoop() {
           } else if (currentLine.indexOf("GET /csv") == 0) {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/csv; charset=utf-8;");
-            client.println("Content-Disposition:attachment; filename=GyroM5.csv");
+            client.println("Content-Disposition:attachment; filename=data.csv");
             client.println();
             data_to_csv(&client);
             client.println();
@@ -721,7 +725,6 @@ void setup() {
   data_init(DATA_Output,"SRV",TFT_MAGENTA);
   data_init(DATA_Input,"YAW",TFT_YELLOW);
 
-
   // (6) Initialize zeros/means
   call_calibration();
 
@@ -779,6 +782,9 @@ void loop() {
     canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,int(10.0*1000/DATA_MSEC)));
     //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,int(10.0*1000/DATA_MSEC)));
     // RGB graph
+    data_grid(0);
+    data_grid(CONFIG[_MIN]-CH1US_MEAN);
+    data_grid(CONFIG[_MAX]-CH1US_MEAN);
     data_draw(int(10.0*1000/DATA_MSEC));
     // LCD draw
     canvas_footer("HOME");
