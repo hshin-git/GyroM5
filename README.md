@@ -134,7 +134,7 @@ GyroM5プログラムは、5Vin端子でBEC電圧の低下を検出すると電�
 
 ## v1画面
 
-(GyroM5v1)[GyroM5/GyroM5.ino]は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
+[GyroM5v1](GyroM5/GyroM5.ino)は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
 
 ![GyroM5v1](https://user-images.githubusercontent.com/64751855/124378819-7ea4f880-dcee-11eb-800e-6e4c70756847.png)
 
@@ -154,7 +154,7 @@ GyroM5プログラムは、5Vin端子でBEC電圧の低下を検出すると電�
 
 ## v2画面
 
-(GyroM5v2)[GyroM5v2/GyroM5v2.ino]は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
+[GyroM5v2](GyroM5v2/GyroM5v2.ino)は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
 
 ![GyroM5v2](https://user-images.githubusercontent.com/64751855/124378834-90869b80-dcee-11eb-9067-8011bbfd12fb.png)
 
