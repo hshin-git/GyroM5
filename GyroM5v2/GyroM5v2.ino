@@ -34,13 +34,13 @@ const int PWM_CH2 = 1;
 //
 const int PWM_BITS = 16;
 const int PWM_DMAX = (1<<PWM_BITS);
-const int PWM_WAIT = (1000000/50) + 1000;
+const int PWM_WAIT = 21*1000;
 //
 const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
 const int PULSE_AMP = (PULSE_MAX-PULSE_MIN)/2;
 
-// CH3
+// CH3 remote gain
 const int GAIN_MIN = 0;
 const int GAIN_MAX = 100;
 const int GAIN_AMP = 120;
@@ -51,8 +51,8 @@ const int CH3_IN = 36;
 const int CH1_OUT = 0;
 
 // LCD parameters
-const int LCD_BREATH = 8;
-const int LCD_UPDATE = 500; //in msec
+const int LCD_BACK = 8;   // brightness 7-15
+const int LCD_MSEC = 500; // update in msec
 const int BG_COLOR = TFT_BLACK;
 const int FG_COLOR = TFT_WHITE;
 
@@ -61,7 +61,7 @@ RTC_TimeTypeDef RTC_TIME;
 RTC_DateTypeDef RTC_DATE;
 
 // delay after button (msec)
-const int DELAY = 300;
+const int BTN_DELAY = 300;
 
 
 
@@ -70,18 +70,18 @@ const int DELAY = 300;
 // PWM output frequency
 //////////////////////////////////////////////////
 int PWM_FREQ = 50;
-int PWM_CYCL = 1000000/PWM_FREQ;
+int PWM_USEC = 1000000/PWM_FREQ;
 //
 void ch1_setFreq(int freq) {
   if (freq<50 || freq>400) return;
   PWM_FREQ = freq;
-  PWM_CYCL = 1000000/PWM_FREQ;
+  PWM_USEC = 1000000/PWM_FREQ;
   ledcSetup(PWM_CH1,PWM_FREQ,PWM_BITS);
   ledcAttachPin(CH1_OUT,PWM_CH1);
   ledcWrite(PWM_CH1,0);
 }
 void ch1_output(int usec) {
-  int duty = map(usec, 0,PWM_CYCL, 0,PWM_DMAX);
+  int duty = map(usec, 0,PWM_USEC, 0,PWM_DMAX);
   ledcWrite(PWM_CH1,(usec>0? duty: 0));
 }
 
@@ -90,6 +90,7 @@ void ch1_output(int usec) {
 //////////////////////////////////////////////////
 // PWM input by interrupt
 //////////////////////////////////////////////////
+// PWM watch dog timer
 Ticker PWMIN_WDT;
 //
 const int PWMIN_MAX = 4;
@@ -105,7 +106,7 @@ typedef struct {
   long last_;
 } sPWMIN;
 sPWMIN PWMIN[PWMIN_MAX];
-// PWM interrupt routine
+// PWM interrupt handler
 void _pwmin_isr(void *arg) {
   long tnow = micros();
   int id = (int)arg;
@@ -127,7 +128,7 @@ void _pwmin_isr(void *arg) {
     pwm->last = tnow;
   }
 }
-// PWM watch dog timer
+// PWM timer handler
 void _pwmin_tsr(void) {
   long tnow = micros();
   for (int id=0; id<PWMIN_IDS; id++) {
@@ -168,7 +169,7 @@ void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 //
 void canvas_init(void) {
-  M5.Axp.ScreenBreath(LCD_BREATH);
+  M5.Axp.ScreenBreath(LCD_BACK);
   M5.Lcd.setRotation(0);
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
@@ -542,7 +543,7 @@ void config_by_wifi() {
     sprintf(url,"http://%d.%d.%d.%d/",((WIFI_IP>>0)&0xff),((WIFI_IP>>8)&0xff),((WIFI_IP>>16)&0xff),((WIFI_IP>>24)&0xff));
     M5.Lcd.qrcode(url,0,80,80,2);
   }
-  delay(DELAY);
+  delay(BTN_DELAY);
   //
   configAccepted = false;
   while (!configAccepted) {
@@ -550,7 +551,7 @@ void config_by_wifi() {
     vin_watch();
     M5.update();
     if (M5.BtnA.isPressed()) {
-      delay(DELAY);
+      delay(BTN_DELAY);
       return;
     }
   }
@@ -563,13 +564,13 @@ void config_by_wifi() {
 void config_ch1ends() {
   int ch1,val;
   for (int n=0; n<2; n++) {
-    delay(DELAY);
+    delay(BTN_DELAY);
     while (true) {
       ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-      val = map(ch1, 0,PWM_CYCL, 0,PWM_DMAX);
+      val = map(ch1, 0,PWM_USEC, 0,PWM_DMAX);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
       ch1_output(ch1);
-      if (canvas_header("ENDS",LCD_UPDATE)) {
+      if (canvas_header("ENDS",LCD_MSEC)) {
         canvas.println((n? "LEFT": "RIGHT"));
         canvas.printf("[A] SAVE\n");
         canvas.printf("[B] CANCEL\n");
@@ -586,7 +587,7 @@ void config_ch1ends() {
       else
       if (M5.BtnB.isPressed()) {
         ch1_output(0);
-        delay(DELAY);
+        delay(BTN_DELAY);
         return;
       }
     } 
@@ -601,7 +602,7 @@ void config_ch1ends() {
     config_puts();
   }
   ch1_output(0);
-  delay(DELAY);
+  delay(BTN_DELAY);
 }
 
 
@@ -668,7 +669,7 @@ void call_calibration(void) {
   // wait
   while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) {
     vin_watch();
-    if (canvas_header("CONF", LCD_UPDATE)) {
+    if (canvas_header("CONF", LCD_MSEC)) {
       for (int n=0; n<SIZE-1; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
       canvas_footer("CONF");
     }
@@ -687,7 +688,7 @@ void call_calibration(void) {
       ACCEL_MEAN[i] = (n==0? accel[i]: (ACCEL_MEAN[i] + accel[i])/2.);
     }
     //
-    if (canvas_header("INIT", LCD_UPDATE)) {
+    if (canvas_header("INIT", LCD_MSEC)) {
       canvas.println("PWM (Hz)");
       canvas.printf( " F:%8d\n",hrz);
       canvas.println("CH1 (us)");
@@ -832,9 +833,9 @@ void setup() {
   M5.begin();
   M5.MPU6886.Init();
   //while (!setCpuFrequencyMhz(80));  
-  canvas_init();
 
   // (2) Initialize configuration
+  canvas_init();
   config_init();
 
   // (3) Initialize GPIO settings
@@ -847,7 +848,7 @@ void setup() {
 
   // (4) WiFi AP setting
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
-  delay(DELAY);
+  delay(BTN_DELAY);
   WiFi.softAPConfig(WIFI_IP, WIFI_IP, WIFI_SUBNET);
   IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
@@ -875,7 +876,7 @@ void setup() {
 void loop() {
   // Fetch new Setpoint/Input and compute Output by PID
   //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  if (callPID(PWM_CYCL/1000)) {
+  if (callPID(PWM_USEC/1000)) {
     loopPID();
     getFrequency();
   }
@@ -888,7 +889,7 @@ void loop() {
   }
 
   // Monitor variables in every 500msec
-  if (canvas_header("HOME",LCD_UPDATE)) {
+  if (canvas_header("HOME",LCD_MSEC)) {
     int lastData = 8*1000/DATA_MSEC;
     int ch3_gain;    
     // RCV monitor
