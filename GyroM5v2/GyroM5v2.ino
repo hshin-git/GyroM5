@@ -15,7 +15,7 @@
 #include <WiFiClient.h>
 #include <Preferences.h>
 #include <QuickPID.h>
-//#include <Ticker.h>
+#include <Ticker.h>
 
 
 //////////////////////////////////////////////////
@@ -58,14 +58,14 @@ const int DELAY = 300;
 //////////////////////////////////////////////////
 // PWM output frequency
 //////////////////////////////////////////////////
-int PWM_HERZ = 50;
-int PWM_CYCL = 1000000/PWM_HERZ;
+int PWM_FREQ = 50;
+int PWM_CYCL = 1000000/PWM_FREQ;
 //
-void ch1_setHerz(int herz) {
-  if (herz<50 || herz>500) return;
-  PWM_HERZ = herz;
-  PWM_CYCL = 1000000/PWM_HERZ;
-  ledcSetup(PWM_CH1,PWM_HERZ,PWM_BITS);
+void ch1_setFreq(int freq) {
+  if (freq<50 || freq>400) return;
+  PWM_FREQ = freq;
+  PWM_CYCL = 1000000/PWM_FREQ;
+  ledcSetup(PWM_CH1,PWM_FREQ,PWM_BITS);
   ledcAttachPin(CH1_OUT,PWM_CH1);
   ledcWrite(PWM_CH1,0);
 }
@@ -73,6 +73,82 @@ void ch1_output(int usec) {
   int duty = map(usec, 0,PWM_CYCL, 0,PWM_DMAX);
   ledcWrite(PWM_CH1,(usec>0? duty: 0));
 }
+
+
+
+//////////////////////////////////////////////////
+// PWM input by interrupt
+//////////////////////////////////////////////////
+Ticker PWMIN_WDT;
+//
+const int PWMIN_MAX = 4;
+int PWMIN_IDS = 0;
+typedef struct {
+  int pin;
+  int *dst;
+  int prev;
+  long last;
+  int tout;
+  // for freq
+  int *dst_;
+  long last_;
+} sPWMIN;
+sPWMIN PWMIN[PWMIN_MAX];
+// PWM interrupt routine
+void _pwmin_isr(void *arg) {
+  long tnow = micros();
+  int id = (int)arg;
+  sPWMIN *pwm = &PWMIN[id];
+  int vnow = digitalRead(pwm->pin);
+  if (pwm->prev==0 && vnow==1) {
+    // at up edge
+    pwm->prev = 1;
+    pwm->last = tnow;
+    // for freq
+    *(pwm->dst_) = (tnow > pwm->last_? 1000000/(tnow - pwm->last_) :0);
+    pwm->last_ = tnow;
+  }
+  else
+  if (pwm->prev==1 && vnow==0) {
+    // at down edge
+    *(pwm->dst) = tnow - pwm->last;
+    pwm->prev = 0;
+    pwm->last = tnow;
+  }
+}
+// PWM watch dog timer
+void _pwmin_tsr(void) {
+  long tnow = micros();
+  for (int id=0; id<PWMIN_IDS; id++) {
+    sPWMIN *pwm = &PWMIN[id];
+    if (pwm->last + pwm->tout < tnow) {
+      *(pwm->dst) = 0;
+      *(pwm->dst_) = 0;
+    }
+  }
+}
+//
+void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
+  if (PWMIN_IDS < PWMIN_MAX) {
+    int id = PWMIN_IDS;
+    sPWMIN *pwm = &PWMIN[id];
+    pwm->pin = pin;
+    pwm->dst = usec;
+    pwm->prev = 0;
+    pwm->last = micros();
+    pwm->tout = toutMs * 1000;
+    // for freq
+    pwm->dst_ = freq;
+    pwm->last_ = micros();
+    //
+    pinMode(pin,INPUT);
+    attachInterruptArg(pin,_pwmin_isr,(void*)id,CHANGE);
+    PWMIN_WDT.attach_ms(toutMs,_pwmin_tsr);
+    //
+    PWMIN_IDS = id + 1;
+  }
+}
+
 
 
 //////////////////////////////////////////////////
@@ -108,18 +184,20 @@ bool canvas_footer(char *text) {
 }
 
 
+
 //////////////////////////////////////////////////
 // Ring buffer to store and draw sampled values
 //////////////////////////////////////////////////
 // ring buffer
 const int RING_MAX = 4;
-struct {
-  int IDS = 0;
-  int *ARRAY[RING_MAX];
-  int HEAD[RING_MAX];
-  char *TEXT[RING_MAX];
-  int COLOR[RING_MAX];
-} RING;
+int RING_IDS = 0;
+typedef struct {
+  int *buff;
+  int head;
+  char *text;
+  int color;
+} sRING;
+sRING RING[RING_MAX];
 
 // data storage
 const int DATA_MSEC = 100; // sampling pediod
@@ -130,34 +208,34 @@ int DATA_Input[DATA_SIZE];
 
 //
 int data_init(int *buf, char *txt, int col=TFT_WHITE) {
-  int id = RING.IDS;
+  int id = RING_IDS;
   if (id < RING_MAX) {
-    RING.ARRAY[id] = buf;
-    RING.HEAD[id] = 0;
-    RING.TEXT[id] = txt;
-    RING.COLOR[id] = col;
+    RING[id].buff = buf;
+    RING[id].head = 0;
+    RING[id].text = txt;
+    RING[id].color = col;
     for (int i=0; i<DATA_SIZE; i++) buf[i] = 0;
-    RING.IDS = id+1;
+    RING_IDS = id+1;
     return id;
   }
   return -1;
 }
 void data_put(int id, int val) {
   int N = DATA_SIZE;
-  int *A = RING.ARRAY[id];
-  int p = RING.HEAD[id];
+  int *A = RING[id].buff;
+  int p = RING[id].head;
   A[p] = val;
-  RING.HEAD[id] = (p+1)%N;
+  RING[id].head = (p+1)%N;
 }
 void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, int height=80) {
   int N = DATA_SIZE;
   int PAST = past<=0? N: min(N,past);
   
-  for (int id=0; id<RING.IDS; id++) {
-    int *A = RING.ARRAY[id];
-    int p = RING.HEAD[id];
-    char *txt = RING.TEXT[id];
-    int color = RING.COLOR[id];
+  for (int id=0; id<RING_IDS; id++) {
+    int *A = RING[id].buff;
+    int p = RING[id].head;
+    char *txt = RING[id].text;
+    int color = RING[id].color;
     // plot
     p = (p-PAST+N)%N;
     for (int n=0; n<PAST-1; n++) {
@@ -187,20 +265,20 @@ void data_grid(int v, int top=80, int left=0, int width=80, int height=80) {
 }
 void data_to_csv(WiFiClient *cl) {
   int N = DATA_SIZE;
-  int p = RING.HEAD[0];
+  int p = RING[0].head;
   // head
   cl->print("SEC,");
-  for (int id=0; id<RING.IDS; id++) {
-    cl->print(RING.TEXT[id]);
-    cl->print(id<RING.IDS-1? ",": "\n");
+  for (int id=0; id<RING_IDS; id++) {
+    cl->print(RING[id].text);
+    cl->print(id<RING_IDS-1? ",": "\n");
   }
   // data
   for (int n=0; n<N; n++) {
     cl->printf("%.2f,", n*DATA_MSEC/1000.0);
-    for (int id=0; id<RING.IDS; id++) {
-      int *A = RING.ARRAY[id];
+    for (int id=0; id<RING_IDS; id++) {
+      int *A = RING[id].buff;
       cl->print(A[p]);
-      cl->print(id<RING.IDS-1? ",": "\n");
+      cl->print(id<RING_IDS-1? ",": "\n");
     }
     p = (p+1)%N;  
   }
@@ -215,9 +293,9 @@ bool data_sample(int msec) {
 }
 float data_MAE(int id1, int id2, int past=0) {
   int N = DATA_SIZE;  
-  int *A1 = RING.ARRAY[id1];
-  int *A2 = RING.ARRAY[id2];
-  int p = RING.HEAD[id1];
+  int *A1 = RING[id1].buff;
+  int *A2 = RING[id2].buff;
+  int p = RING[id1].head;
   int PAST = past<=0? N: min(N,past);
   float MAE = 0.0;
   p = (p-PAST+N)%N;
@@ -225,13 +303,13 @@ float data_MAE(int id1, int id2, int past=0) {
     MAE += abs(A1[p]-A2[p]);
     p = (p+1)%N;
   }
-  return MAE/N;
+  return MAE/PAST;
 }
 float data_RMSE(int id1, int id2, int past=0) {
   int N = DATA_SIZE;  
-  int *A1 = RING.ARRAY[id1];
-  int *A2 = RING.ARRAY[id2];
-  int p = RING.HEAD[id1];
+  int *A1 = RING[id1].buff;
+  int *A2 = RING[id2].buff;
+  int p = RING[id1].head;
   int PAST = past<=0? N: min(N,past);
   float MSE = 0.0;
   p = (p-PAST+N)%N;
@@ -239,8 +317,9 @@ float data_RMSE(int id1, int id2, int past=0) {
     MSE += (A1[p]-A2[p])*(A1[p]-A2[p]);
     p = (p+1)%N;   
   }
-  return sqrt(MSE/N);
+  return sqrt(MSE/PAST);
 }
+
 
 
 //////////////////////////////////////////////////
@@ -270,6 +349,7 @@ void vin_watch() {
     lastTime = millis();
   }
 }
+
 
 
 //////////////////////////////////////////////////
@@ -350,6 +430,10 @@ window.onload = onLoad();
 </html>
 )";
 
+
+// foward prototype
+void setupPID(bool);
+
 // HTML buffer
 char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
 
@@ -387,7 +471,8 @@ void configLoop() {
               CONFIG[n] = val;
             }
             config_puts();
-            ch1_setHerz(CONFIG[_PWM]);
+            ch1_setFreq(CONFIG[_PWM]);
+            setupPID(true);
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
@@ -492,6 +577,7 @@ void config_ch1ends() {
 }
 
 
+
 //////////////////////////////////////////////////
 // Low/High Pass Filters
 //////////////////////////////////////////////////
@@ -525,6 +611,7 @@ void config_ch1ends() {
 //  buf[1] = x;
 //  return y;
 //}
+
 
 
 //////////////////////////////////////////////////
@@ -620,6 +707,7 @@ float getVibrationalG(float *accel) {
 }
 
 
+
 //////////////////////////////////////////////////
 // QuickPID with timer interruption
 //////////////////////////////////////////////////
@@ -632,6 +720,10 @@ QuickPID myPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
 int CH1_USEC = 0;
 int CH2_USEC = 0;
 int CH3_USEC = 0;
+//
+int CH1_FREQ = 0;
+int CH2_FREQ = 0;
+int CH3_FREQ = 0;
 
 // IMU input values
 float IMU_OMEGA[3];
@@ -668,7 +760,7 @@ void IRAM_ATTR loopPID() {
 // PID setup
 void setupPID(bool init=false) {
   float Kp = (CONFIG[_KP]/50.);
-  float Ki = (CONFIG[_KI]/500.);
+  float Ki = (CONFIG[_KI]/100.);
   float Kd = (CONFIG[_KD]/5000.);
   int Min = int(CONFIG[_MIN] - CH1US_MEAN);
   int Max = int(CONFIG[_MAX] - CH1US_MEAN);
@@ -677,8 +769,8 @@ void setupPID(bool init=false) {
   myPID.SetOutputLimits(Min,Max);
   
   if (init) {
-    //int CycleInUs = 1000000/CONFIG[_PWM];
-    int CycleInUs = 1000000/getFrequency(true);
+    int CycleInUs = 1000000/CONFIG[_PWM];
+    //int CycleInUs = 1000000/getFrequency(true);
     myPID.SetSampleTimeUs(CycleInUs);
     myPID.SetMode(QuickPID::AUTOMATIC);
     //myPID.SetMode(QuickPID::TIMER);
@@ -691,6 +783,17 @@ void setupPID(bool init=false) {
     //timerAlarmEnable(timerPID);
   }
 }
+
+//
+bool callPID(int msec) {
+  static long lastTime = 0;
+  if (lastTime + msec < millis()) {
+    lastTime = millis();
+    return true;
+  }
+  return false;
+}
+
 
 
 //////////////////////////////////////////////////
@@ -711,7 +814,9 @@ void setup() {
   pinMode(CH1_IN,INPUT);
   pinMode(CH3_IN,INPUT);
   pinMode(CH1_OUT,OUTPUT);
-  ch1_setHerz(CONFIG[_PWM]);
+  ch1_setFreq(CONFIG[_PWM]);
+  pwmin_init(CH1_IN,&CH1_USEC,&CH1_FREQ);
+  pwmin_init(CH3_IN,&CH3_USEC,&CH3_FREQ);
 
   // (4) WiFi AP setting
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
@@ -736,14 +841,17 @@ void setup() {
 }
 
 
+
 //////////////////////////////////////////////////
 // put your main code here, to run repeatedly:
 //////////////////////////////////////////////////
 void loop() {
   // Fetch new Setpoint/Input and compute Output by PID
-  CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  loopPID();
-  getFrequency();
+  //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
+  if (callPID(PWM_CYCL/1000)) {
+    loopPID();
+    getFrequency();
+  }
   
   // Sample PID variables in every 20msec
   if (data_sample(DATA_MSEC)){
@@ -754,7 +862,8 @@ void loop() {
 
   // Monitor variables in every 500msec
   if (canvas_header("HOME",500)) {
-    int ch3_gain;
+    int lastData = 8*1000/DATA_MSEC;
+    int ch3_gain;    
     // RCV monitor
     canvas.println("RCV (us)");
     canvas.printf( " CH1:%6d\n", CH1_USEC);
@@ -762,8 +871,8 @@ void loop() {
     canvas.printf( " CH3:%6d\n", CH3_USEC);
     // PWM monitor
     canvas.println("PWM (Hz)");
-    canvas.printf( " IN :%6d\n", (CH1_USEC>0? getFrequency(true): 0));
-    canvas.printf( " OUT:%6d\n", PWM_HERZ);
+    canvas.printf( " IN :%6d\n", CH1_FREQ);
+    canvas.printf( " OUT:%6d\n", PWM_FREQ);
     // IMU monitor
     //canvas.println("OMEGA (rad/s)");
     //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]*M5.MPU6886.gRes);
@@ -779,18 +888,18 @@ void loop() {
     //canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
     // ERR monitor
     canvas.println("PID (us)");
-    canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,int(10.0*1000/DATA_MSEC)));
-    //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,int(10.0*1000/DATA_MSEC)));
+    canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,lastData));
+    //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,lastData));
     // RGB graph
     data_grid(0);
     data_grid(CONFIG[_MIN]-CH1US_MEAN);
     data_grid(CONFIG[_MAX]-CH1US_MEAN);
-    data_draw(int(10.0*1000/DATA_MSEC));
+    data_draw(lastData);
     // LCD draw
     canvas_footer("HOME");
     
     // CH3 => CONFIG
-    CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
+    //CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
     ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -GAIN_AMP,GAIN_AMP);
     ch3_gain = constrain(ch3_gain, GAIN_MIN,GAIN_MAX);
     switch (CONFIG[_CH3]) {
