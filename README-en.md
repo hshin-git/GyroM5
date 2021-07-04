@@ -3,7 +3,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
-- Sketch [GyroM5.ino](GyroM5/GyroM5.ino) installed M5SitckC can stabilize drift driving of your RC car.
+- Sketch [GyroM5v2.ino](GyroM5v2/GyroM5v2.ino) installed M5SitckC can stabilize drift driving of your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -52,7 +52,7 @@ The outline of usage is as follows. The details are in next section.
 1. Install Arduino IDE on your PC.
 2. Setup Arduino IDE for ESP/M5StickC.
 3. Connect your PC and M5StickC with USB.
-4. Install sketch [GyroM5.ino](GyroM5/GyroM5.ino) on your M5StickC.
+4. Install sketch [GyroM5v2.ino](GyroM5v2/GyroM5v2.ino) on your M5StickC.
 5. Install GyroM5/M5StickC on your RC car with LCD up.
 
 ## Software setting
@@ -105,20 +105,23 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 GyroM5 has five states below.
 One state transits to anothr state at button [A]/[B] or timeout event.
 
-![GyroM5](https://user-images.githubusercontent.com/64751855/117535959-70f72d80-b033-11eb-8e9c-6c60c3ccc51d.png)
+![GyroM5v2](https://user-images.githubusercontent.com/64751855/124378834-90869b80-dcee-11eb-9067-8011bbfd12fb.png)
 
-- State "Operating" is the home, transits to "Setting" by [A] and transits to "CH3 selecting" by [B].
-- State other than "Operating" accepts A/B button or returns to "Operating" by timeout.
-- In "Gain setting", send integer value by CH1 signal, save the desired value by [A] or cancel by [B]. 
+- State "HOME" is the home, transits to "WIFI" by [A] and transits to "ENDS" by [B].
+- State other than "HOME" accepts A/B button or returns to "HOME" by timeout.
 - Remote gain tuning by CH3 is initially disabled. 
 
 |state|transition|descripition|
 |----|----|----|
-|Waiting |RC signal |waits for PWM signal from RC receiver|
-|Calibrating |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
-|Operating |[A],[B] |displays RC signals, IMU inputs and PID gains|
-|SettingPID |[A],[B] |sets PID gains and CH1 end points|
-|SettingCH3 |[B] |binds CH3 to PID gains|
+|WAIT |RC signal |waits for PWM signal from RC receiver|
+|INIT |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
+|HOME |[A],[B] |displays RC signals, IMU inputs and PID gains|
+|WIFI |[A] |becomes WiFi access point and accepts setting commands|
+|ENDS |[B] |sets CH1 end points|
+
+
+GyroM5's web server returns the following page for various setting. In this page, you can setup PID parameters, PWM frequency and so on.
+![SettingByWiFi](https://user-images.githubusercontent.com/64751855/124377656-f6bbf000-dce7-11eb-93ab-0ea7cc6a0294.png)
 
 
 ## Tuning
