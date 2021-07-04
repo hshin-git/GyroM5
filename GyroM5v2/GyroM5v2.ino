@@ -2,10 +2,10 @@
 // GyroM5v2 - M5StickC project:
 //   Steering assisting unit for RC drift car
 // New Features from GyroM5v1:
-//   Parameter setting by WiFi AP
+//   Parameter setting by WiFi AP and WWW server
 //   Variable PWM frequency output
 //   Continuous time PID controller
-//   Automatic detection of vertical axis
+//   Automatic detection of vertical
 // URL:
 //   https://github.com/hshin-git/GyroM5
 //////////////////////////////////////////////////
@@ -14,16 +14,16 @@
 #include <WiFiAP.h>
 #include <WiFiClient.h>
 #include <Preferences.h>
-#include <QuickPID.h>
 #include <Ticker.h>
+#include <QuickPID.h>
 
 
 //////////////////////////////////////////////////
 // Global constants
 //////////////////////////////////////////////////
 // WiFi parameters
-const char WIFI_SSID[] = "GyroM5";
-const char WIFI_PASS[] = "";
+const char *WIFI_SSID = "GyroM5";
+const char *WIFI_PASS = "";
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
@@ -35,7 +35,8 @@ const int PWM_CH2 = 1;
 const int PWM_BITS = 16;
 const int PWM_DMAX = (1<<PWM_BITS);
 const int PWM_WAIT = 21*1000;
-//
+
+// PWM pulse width
 const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
 const int PULSE_AMP = (PULSE_MAX-PULSE_MIN)/2;
@@ -51,14 +52,14 @@ const int CH3_IN = 36;
 const int CH1_OUT = 0;
 
 // LCD parameters
-const int LCD_BACK = 8;   // brightness 7-15
+const int LCD_LEVEL = 8;   // brightness 7-15
 const int LCD_MSEC = 500; // update in msec
-const int BG_COLOR = TFT_BLACK;
-const int FG_COLOR = TFT_WHITE;
+const int LCD_BACK = TFT_BLACK;
+const int LCD_FORE = TFT_WHITE;
 
 // RTC
-RTC_TimeTypeDef RTC_TIME;
 RTC_DateTypeDef RTC_DATE;
+RTC_TimeTypeDef RTC_TIME;
 
 // delay after button (msec)
 const int BTN_DELAY = 300;
@@ -69,6 +70,7 @@ const int BTN_DELAY = 300;
 //////////////////////////////////////////////////
 // PWM output frequency
 //////////////////////////////////////////////////
+// PWM variables
 int PWM_FREQ = 50;
 int PWM_USEC = 1000000/PWM_FREQ;
 //
@@ -88,7 +90,7 @@ void ch1_output(int usec) {
 
 
 //////////////////////////////////////////////////
-// PWM input by interrupt
+// PWM read by interrupt and timer
 //////////////////////////////////////////////////
 // PWM watch dog timer
 Ticker PWMIN_WDT;
@@ -164,12 +166,42 @@ void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
 
 
 //////////////////////////////////////////////////
+// Power source 5Vin watcher
+//////////////////////////////////////////////////
+void _axp_halt(){
+  Wire1.beginTransmission(0x34);
+  Wire1.write(0x32);
+  Wire1.endTransmission();
+  Wire1.requestFrom(0x34, 1);
+  uint8_t buf = Wire1.read();
+  Wire1.beginTransmission(0x34);
+  Wire1.write(0x32);
+  Wire1.write(buf | 0x80); // halt bit
+  Wire1.endTransmission();
+}
+void vin_watch() {
+  static long lastTime = 0;
+  float vin = M5.Axp.GetVinData()*1.7 /1000;
+  float usb = M5.Axp.GetVusbinData()*1.7 /1000;
+  //Serial.printf("vin,usb = %f,%f\n",vin,usb);
+  if ( vin < 3.0 && usb < 3.0 ) {
+    if ( lastTime + 3*1000 < millis() ) {
+      _axp_halt();
+    }
+  } else {
+    lastTime = millis();
+  }
+}
+
+
+
+//////////////////////////////////////////////////
 // LCD helpers
 //////////////////////////////////////////////////
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 //
 void canvas_init(void) {
-  M5.Axp.ScreenBreath(LCD_BACK);
+  M5.Axp.ScreenBreath(LCD_LEVEL);
   M5.Lcd.setRotation(0);
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
@@ -177,12 +209,12 @@ bool canvas_header(char *text, int msec) {
   static long lastTime = 0;
   if (lastTime + msec < millis()) {
     M5.Rtc.GetTime(&RTC_TIME);
-    canvas.fillScreen(BG_COLOR);
+    canvas.fillScreen(LCD_BACK);
     canvas.setCursor(0,0);
-    canvas.setTextColor(BG_COLOR,FG_COLOR);
+    canvas.setTextColor(LCD_BACK,LCD_FORE);
     //canvas.printf(" %-12s\n",text);
     canvas.printf(" %-6s %02d:%02d\n",text,RTC_TIME.Hours,RTC_TIME.Minutes);
-    canvas.setTextColor(FG_COLOR,BG_COLOR);
+    canvas.setTextColor(LCD_FORE,LCD_BACK);
     lastTime = millis();
     return true;
   }
@@ -190,10 +222,10 @@ bool canvas_header(char *text, int msec) {
 }
 bool canvas_footer(char *text) {
   M5.Rtc.GetData(&RTC_DATE);
-  canvas.setTextColor(BG_COLOR,FG_COLOR);
+  canvas.setTextColor(LCD_BACK,LCD_FORE);
   //canvas.printf(" %-12s\n",text);
   canvas.printf(" %-6s %02d/%02d\n",text,RTC_DATE.Month,RTC_DATE.Date);
-  canvas.setTextColor(FG_COLOR,BG_COLOR);
+  canvas.setTextColor(LCD_FORE,LCD_BACK);
   canvas.pushSprite(0,0);
 }
 
@@ -267,7 +299,7 @@ void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, i
       canvas.setCursor(8*(3*id+1),top);
       canvas.setTextColor(color);
       canvas.printf("%3s",txt);
-      canvas.setTextColor(FG_COLOR);
+      canvas.setTextColor(LCD_FORE);
       // reset cursor in ad-hoc manner
       canvas.setCursor(0,8*lastLine);
     }
@@ -275,9 +307,9 @@ void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, i
 }
 void data_grid(int v, int top=80, int left=0, int width=80, int height=80) {
   int y = map(v, -PULSE_AMP,PULSE_AMP, top+height,top);
-  canvas.drawLine(left,y, left+width,y,FG_COLOR);
+  canvas.drawLine(left,y, left+width,y,LCD_FORE);
 }
-void data_to_csv(WiFiClient *cl) {
+void data_dump_csv(WiFiClient *cl) {
   int N = DATA_SIZE;
   int p = RING[0].head;
   // head
@@ -337,70 +369,43 @@ float data_RMSE(int id1, int id2, int past=0) {
 
 
 //////////////////////////////////////////////////
-// 5Vin watcher
-//////////////////////////////////////////////////
-void _axp_halt(){
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.endTransmission();
-  Wire1.requestFrom(0x34, 1);
-  uint8_t buf = Wire1.read();
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.write(buf | 0x80); // halt bit
-  Wire1.endTransmission();
-}
-void vin_watch() {
-  static long lastTime = 0;
-  float vin = M5.Axp.GetVinData()*1.7 /1000;
-  float usb = M5.Axp.GetVusbinData()*1.7 /1000;
-  //Serial.printf("vin,usb = %f,%f\n",vin,usb);
-  if ( vin < 3.0 && usb < 3.0 ) {
-    if ( lastTime + 5*1000 < millis() ) {
-      _axp_halt();
-    }
-  } else {
-    lastTime = millis();
-  }
-}
-
-
-
-//////////////////////////////////////////////////
-// Parameter config by WiFi
+// GyroM5 configuration parameters
 //////////////////////////////////////////////////
 Preferences STORAGE;
-const char CONFIG_NAME[] = "GYROM5";
-const char CONFIG_KEY[] = "CONF";
+const char *CONF_NAME = "GYROM5";
+const char *CONF_KEY = "CONF";
 
 // GyroM5 parameters
-const char *KEYS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
-const int _INIT_[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
 int CONFIG[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-enum _INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
-const int SIZE = sizeof(CONFIG)/sizeof(int);
-const int TAIL = 3; // number of items after "PWM"
+const int CONF_INIT[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
+const char *CONF_VARS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
+enum CONF_INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
+const int CONF_SIZE = sizeof(CONFIG)/sizeof(int);
+const int CONF_TAIL = 3; // number of items after "PWM"
 
 // storage read/write
 void config_init() {
-  STORAGE.begin(CONFIG_NAME);
-  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
-  if (CONFIG[_END] != _INIT_[_END]) { // the first time
-    STORAGE.putBytes(CONFIG_KEY, &_INIT_, sizeof(CONFIG));
-    STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.begin(CONF_NAME);
+  STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
+  if (CONFIG[_END] != CONF_INIT[_END]) { // the first time
+    STORAGE.putBytes(CONF_KEY, &CONF_INIT, sizeof(CONFIG));
+    STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
   }
 }
 void config_puts() {
-  STORAGE.putBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.putBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
 }
 void config_gets() {
-  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
 }
 
 
 
+//////////////////////////////////////////////////
+// Parameter setting by WiFi and WWW server
+//////////////////////////////////////////////////
 // HTML template
-const char HTML_TEMPLATE[] = R"(
+const char *HTML_TEMPLATE = R"(
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -449,11 +454,11 @@ window.onload = onLoad();
 void setupPID(bool);
 
 // HTML buffer
-char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
+char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*CONF_SIZE];
 
 // Web server for config
 bool configAccepted = false;
-void configLoop() {
+void serverLoop() {
   WiFiClient client = WIFI_SERVER.available();
 
   if (client) {
@@ -478,8 +483,8 @@ void configLoop() {
             int p2 = 0;
             int val = 0;
             // set CONFIG
-            for (int n=0; n<SIZE-TAIL; n++) {
-              String key = KEYS[n];
+            for (int n=0; n<(CONF_SIZE-CONF_TAIL); n++) {
+              String key = CONF_VARS[n];
               key = key + "=";
               p1 = currentLine.indexOf(key, p2) + key.length();
               p2 = currentLine.indexOf('&', p1);
@@ -514,7 +519,7 @@ void configLoop() {
             client.println("Content-type:text/csv; charset=utf-8;");
             client.println("Content-Disposition:attachment; filename=data.csv");
             client.println();
-            data_to_csv(&client);
+            data_dump_csv(&client);
             client.println();
             break;
           } else {
@@ -530,7 +535,7 @@ void configLoop() {
   }
 }
 
-void config_by_wifi() {
+void setup_by_WiFi() {
   //WIFI_SERVER.begin();
   //
   if (canvas_header("WIFI",0)) {
@@ -547,7 +552,7 @@ void config_by_wifi() {
   //
   configAccepted = false;
   while (!configAccepted) {
-    configLoop();
+    serverLoop();
     vin_watch();
     M5.update();
     if (M5.BtnA.isPressed()) {
@@ -560,8 +565,8 @@ void config_by_wifi() {
 }
 
 
-// config for ch1 end points
-void config_ch1ends() {
+// setup for ch1 end points
+void setup_CH1Ends() {
   int ch1,val;
   for (int n=0; n<2; n++) {
     delay(BTN_DELAY);
@@ -670,7 +675,7 @@ void call_calibration(void) {
   while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) {
     vin_watch();
     if (canvas_header("CONF", LCD_MSEC)) {
-      for (int n=0; n<SIZE-1; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
+      for (int n=0; n<CONF_SIZE-1; n++) canvas.printf(" %s:%6d\n",CONF_VARS[n],CONFIG[n]);
       canvas_footer("CONF");
     }
   }
@@ -679,7 +684,7 @@ void call_calibration(void) {
   for (int n=0; true; n++) {
     float omega[3],accel[3];
     int ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-    int hrz = getFrequency();
+    int fHz = getFrequency();
     M5.MPU6886.getGyroData(&omega[0],&omega[1],&omega[2]);
     M5.MPU6886.getAccelData(&accel[0],&accel[1],&accel[2]);
     CH1US_MEAN = (n==0? ch1: (CH1US_MEAN + ch1)/2.);
@@ -690,7 +695,7 @@ void call_calibration(void) {
     //
     if (canvas_header("INIT", LCD_MSEC)) {
       canvas.println("PWM (Hz)");
-      canvas.printf( " F:%8d\n",hrz);
+      canvas.printf( " F:%8d\n",fHz);
       canvas.println("CH1 (us)");
       canvas.printf( " D:%8.2f\n",CH1US_MEAN);
       canvas.println("OMEGA (rad/s)");
@@ -740,9 +745,9 @@ float getVibrationalG(float *accel) {
 //////////////////////////////////////////////////
 // QuickPID with timer interruption
 //////////////////////////////////////////////////
-float Setpoint=0.0;
-float Input=0.0;
-float Output=0.0;
+float Setpoint = 0.0;
+float Input = 0.0;
+float Output = 0.0;
 QuickPID myPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
 
 // PWM input values in usec
@@ -768,7 +773,7 @@ void loopPID() {
   M5.MPU6886.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
   M5.MPU6886.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
 
-  //
+  // IMU to yaw rate
   Kg = CONFIG[_CH1]? -Kg: Kg;
   yrate = getYawRate(IMU_OMEGA);
   
@@ -813,8 +818,8 @@ void setupPID(bool init=false) {
   }
 }
 
-//
-bool callPID(int msec) {
+// test for timing
+bool timePID(int msec) {
   static long lastTime = 0;
   if (lastTime + msec < millis()) {
     lastTime = millis();
@@ -876,7 +881,7 @@ void setup() {
 void loop() {
   // Fetch new Setpoint/Input and compute Output by PID
   //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  if (callPID(PWM_USEC/1000)) {
+  if (timePID(PWM_USEC/1000)) {
     loopPID();
     getFrequency();
   }
@@ -889,7 +894,7 @@ void loop() {
   }
 
   // Monitor variables in every 500msec
-  if (canvas_header("HOME",LCD_MSEC)) {
+  if (canvas_header("HOME", LCD_MSEC)) {
     int lastData = 8*1000/DATA_MSEC;
     int ch3_gain;    
     // RCV monitor
@@ -945,7 +950,7 @@ void loop() {
   // Watch vin and buttons
   vin_watch();
   M5.update();
-  if (M5.BtnA.isPressed()) config_by_wifi();
+  if (M5.BtnA.isPressed()) setup_by_WiFi();
   else
-  if (M5.BtnB.isPressed()) config_ch1ends();
+  if (M5.BtnB.isPressed()) setup_CH1Ends();
 }
