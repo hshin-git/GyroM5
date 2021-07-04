@@ -120,7 +120,9 @@ One state transits to anothr state at button [A]/[B] or timeout event.
 |ENDS |[B] |sets CH1 end points|
 
 
-GyroM5's web server returns the following page for various setting. In this page, you can setup PID parameters, PWM frequency and so on.
+GyroM5's web server returns the following page for various setting. 
+In this page, you can setup PID parameters, PWM frequency and so on.
+
 ![SettingByWiFi](https://user-images.githubusercontent.com/64751855/124377656-f6bbf000-dce7-11eb-93ab-0ea7cc6a0294.png)
 
 
