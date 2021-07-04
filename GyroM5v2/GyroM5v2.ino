@@ -50,8 +50,19 @@ const int CH1_IN = 26;
 const int CH3_IN = 36;
 const int CH1_OUT = 0;
 
+// LCD parameters
+const int LCD_BREATH = 8;
+const int LCD_UPDATE = 500; //in msec
+const int BG_COLOR = TFT_BLACK;
+const int FG_COLOR = TFT_WHITE;
+
+// RTC
+RTC_TimeTypeDef RTC_TIME;
+RTC_DateTypeDef RTC_DATE;
+
 // delay after button (msec)
 const int DELAY = 300;
+
 
 
 
@@ -155,21 +166,21 @@ void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
 // LCD helpers
 //////////////////////////////////////////////////
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
-const int BG_COLOR = TFT_BLACK;
-const int FG_COLOR = TFT_WHITE;
 //
 void canvas_init(void) {
-  M5.Axp.ScreenBreath(8);
+  M5.Axp.ScreenBreath(LCD_BREATH);
   M5.Lcd.setRotation(0);
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
 bool canvas_header(char *text, int msec) {
   static long lastTime = 0;
   if (lastTime + msec < millis()) {
+    M5.Rtc.GetTime(&RTC_TIME);
     canvas.fillScreen(BG_COLOR);
     canvas.setCursor(0,0);
     canvas.setTextColor(BG_COLOR,FG_COLOR);
-    canvas.printf(" %-12s\n",text);
+    //canvas.printf(" %-12s\n",text);
+    canvas.printf(" %-6s %02d:%02d\n",text,RTC_TIME.Hours,RTC_TIME.Minutes);
     canvas.setTextColor(FG_COLOR,BG_COLOR);
     lastTime = millis();
     return true;
@@ -177,8 +188,10 @@ bool canvas_header(char *text, int msec) {
   return false;
 }
 bool canvas_footer(char *text) {
+  M5.Rtc.GetData(&RTC_DATE);
   canvas.setTextColor(BG_COLOR,FG_COLOR);
-  canvas.printf(" %-12s\n",text);
+  //canvas.printf(" %-12s\n",text);
+  canvas.printf(" %-6s %02d/%02d\n",text,RTC_DATE.Month,RTC_DATE.Date);
   canvas.setTextColor(FG_COLOR,BG_COLOR);
   canvas.pushSprite(0,0);
 }
@@ -342,7 +355,7 @@ void vin_watch() {
   float usb = M5.Axp.GetVusbinData()*1.7 /1000;
   //Serial.printf("vin,usb = %f,%f\n",vin,usb);
   if ( vin < 3.0 && usb < 3.0 ) {
-    if ( lastTime + 5000 < millis() ) {
+    if ( lastTime + 5*1000 < millis() ) {
       _axp_halt();
     }
   } else {
@@ -382,12 +395,7 @@ void config_puts() {
 void config_gets() {
   STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
 }
-void config_show() {
-  if (canvas_header("CONF",0)) {
-    for (int n=0; n<SIZE; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
-    canvas_footer("CONF");
-  }
-}
+
 
 
 // HTML template
@@ -410,20 +418,25 @@ const char HTML_TEMPLATE[] = R"(
 <tr><td>CH3</td><td><input type='range' name='CH3' min='0' max='5' step='1' value='0' oninput='onInput(this)' /></td><td><span id='CH3'>0</span></td><td>0:TB, 1:KG, 2:KP, 3:KI, 4:KD, 5:NO</td></tr>
 <tr><td>PWM</td><td><input type='range' name='PWM' min='50' max='400' step='50' value='50' oninput='onInput(this)' /></td><td><span id='PWM'>50</span><td>PWM frequency (Hz)</td></tr>
 </table>
-<input type='submit' value='upload setting' />
+<input type='hidden' name='JST' value='19991231125959' />
+<input type='submit' value='upload setting' onclick='onSubmit()' />
 <input type='button' value='download data' onclick='window.location=window.location.href.split("?")[0]+"csv";' />
 <input type='button' value='reload setting' onclick='window.location=window.location.href.split("?")[0];' />
 </form>
 </body>
 <script>
-function onInput(obj) {
- document.getElementById(obj.name).textContent = obj.value;
-}
+function onInput(obj) { document.getElementById(obj.name).textContent = obj.value; }
 function onLoad() {
  const CONFIG = {KG:%d,KP:%d,KI:%d,KD:%d,CH1:%d,CH3:%d,PWM:%d,};
  const INPUTS = document.getElementsByTagName('input');
  for (let key in CONFIG){ document.getElementsByName(key)[0].value = document.getElementById(key).textContent  = CONFIG[key]; } 
  if (%d) { for (var i=0;i<INPUTS.length-1; i++) { INPUTS[i].disabled = true; } }
+}
+function D2(n) { return ('0'+n).slice(-2); }
+function onSubmit() {
+ const now = new Date();
+ const str = now.getFullYear() + D2(now.getMonth()+1) + D2(now.getDate()) + D2(now.getHours()) + D2(now.getMinutes()) + D2(now.getSeconds());
+ document.getElementsByName('JST')[0].value = str;
 }
 window.onload = onLoad();
 </script>
@@ -452,6 +465,7 @@ void configLoop() {
         //Serial.write(c);
         if (c == '\n') {
           if (currentLine.length() == 0) {
+            // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
@@ -462,17 +476,30 @@ void configLoop() {
             int p1 = 0;
             int p2 = 0;
             int val = 0;
+            // set CONFIG
             for (int n=0; n<SIZE-TAIL; n++) {
               String key = KEYS[n];
               key = key + "=";
               p1 = currentLine.indexOf(key, p2) + key.length();
-              p2 = currentLine.indexOf(n<(SIZE-TAIL)-1? '&': ' ', p1);
+              p2 = currentLine.indexOf('&', p1);
               val = currentLine.substring(p1, p2).toInt();
               CONFIG[n] = val;
             }
+            // set RTC
+            p1 = currentLine.indexOf("JST=",p2) + 4;
+            RTC_DATE.Year = currentLine.substring(p1+0,p1+4).toInt();
+            RTC_DATE.Month = currentLine.substring(p1+4,p1+6).toInt();
+            RTC_DATE.Date = currentLine.substring(p1+6,p1+8).toInt();
+            M5.Rtc.SetData(&RTC_DATE);
+            RTC_TIME.Hours = currentLine.substring(p1+8,p1+10).toInt();
+            RTC_TIME.Minutes = currentLine.substring(p1+10,p1+12).toInt();
+            RTC_TIME.Seconds = currentLine.substring(p1+12,p1+14).toInt();
+            M5.Rtc.SetTime(&RTC_TIME);
+            // save CONFIG
             config_puts();
             ch1_setFreq(CONFIG[_PWM]);
             setupPID(true);
+            // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
             client.println();
@@ -481,6 +508,7 @@ void configLoop() {
             configAccepted = true;
             break;
           } else if (currentLine.indexOf("GET /csv") == 0) {
+            // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/csv; charset=utf-8;");
             client.println("Content-Disposition:attachment; filename=data.csv");
@@ -541,7 +569,7 @@ void config_ch1ends() {
       val = map(ch1, 0,PWM_CYCL, 0,PWM_DMAX);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
       ch1_output(ch1);
-      if (canvas_header("ENDS",500)) {
+      if (canvas_header("ENDS",LCD_UPDATE)) {
         canvas.println((n? "LEFT": "RIGHT"));
         canvas.printf("[A] SAVE\n");
         canvas.printf("[B] CANCEL\n");
@@ -638,12 +666,12 @@ int getFrequency(bool getOnly = false) {
 void call_calibration(void) {
   long startTime;
   // wait
-  for (int n=0; n<10; n++) {
-    if (canvas_header("WAIT", n? 500: 0)) {
-      canvas.printf(" N:%8d\n",n);
-      canvas_footer("WAIT");
+  while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) {
+    vin_watch();
+    if (canvas_header("CONF", LCD_UPDATE)) {
+      for (int n=0; n<SIZE-1; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
+      canvas_footer("CONF");
     }
-    while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) vin_watch();
   }
   // zero
   startTime = millis();
@@ -659,7 +687,7 @@ void call_calibration(void) {
       ACCEL_MEAN[i] = (n==0? accel[i]: (ACCEL_MEAN[i] + accel[i])/2.);
     }
     //
-    if (canvas_header("INIT", n? 500: 0)) {
+    if (canvas_header("INIT", LCD_UPDATE)) {
       canvas.println("PWM (Hz)");
       canvas.printf( " F:%8d\n",hrz);
       canvas.println("CH1 (us)");
@@ -674,7 +702,7 @@ void call_calibration(void) {
       canvas.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
       canvas_footer("INIT");
     }
-    if (startTime + 5000 < millis()) break;
+    if (startTime + 5*1000 < millis()) break;
   }
 }
 
@@ -730,7 +758,7 @@ float IMU_OMEGA[3];
 float IMU_ACCEL[3];
 
 // PID loop
-void IRAM_ATTR loopPID() {
+void loopPID() {
   int ch1_usec;
   float yrate;
   float Kg = (CONFIG[_KG]/1.0);
@@ -808,7 +836,6 @@ void setup() {
 
   // (2) Initialize configuration
   config_init();
-  config_show(); delay(2000);
 
   // (3) Initialize GPIO settings
   pinMode(CH1_IN,INPUT);
@@ -861,7 +888,7 @@ void loop() {
   }
 
   // Monitor variables in every 500msec
-  if (canvas_header("HOME",500)) {
+  if (canvas_header("HOME",LCD_UPDATE)) {
     int lastData = 8*1000/DATA_MSEC;
     int ch3_gain;    
     // RCV monitor
