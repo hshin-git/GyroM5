@@ -68,7 +68,7 @@ RCユニットとの接続方法、M5StickCの起動方法、制御パラメー�
 1. 手持ちのパソコンにArduino IDE（開発環境）をインストールする
 2. Arduino IDEの開発ボード設定をESP32/M5StickC向けに変更する
 3. パソコンとM5StickC開発ボードをUSBケーブルで接続する
-4. スケッチ[GyroM5.ino](GyroM5/GyroM5.ino)をArduino IDE経由でM5StickCへ書き込む
+4. スケッチ[GyroM5v2.ino](GyroM5v2/GyroM5v2.ino)をArduino IDE経由でM5StickCへ書き込む
 6. GyroM5（M5StickC）をRCカーに固定（LCD画面が上向き）してRCユニットと接続する
 
 ## 初期設定
