@@ -28,6 +28,12 @@ const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
 
+// GPIO parameters
+const int CH1_IN = 26;
+const int CH3_IN = 36;
+const int CH1_OUT = 0;
+
+
 // PWM parameters
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
@@ -46,13 +52,8 @@ const int GAIN_MIN = 0;
 const int GAIN_MAX = 100;
 const int GAIN_AMP = 120;
 
-// GPIO parameters
-const int CH1_IN = 26;
-const int CH3_IN = 36;
-const int CH1_OUT = 0;
-
 // LCD parameters
-const int LCD_LEVEL = 8;   // brightness 7-15
+const int LCD_LEVEL = 8;  // brightness 7-15
 const int LCD_MSEC = 500; // update in msec
 const int LCD_BACK = TFT_BLACK;
 const int LCD_FORE = TFT_WHITE;
@@ -68,7 +69,7 @@ const int BTN_DELAY = 300;
 
 
 //////////////////////////////////////////////////
-// PWM output frequency
+// For variable PWM frequency
 //////////////////////////////////////////////////
 // PWM variables
 int PWM_FREQ = 50;
@@ -90,7 +91,7 @@ void ch1_output(int usec) {
 
 
 //////////////////////////////////////////////////
-// PWM read by interrupt and timer
+// Read PWM pulse by interruption: insted of pulseIn()
 //////////////////////////////////////////////////
 // PWM watch dog timer
 Ticker PWMIN_WDT;
@@ -106,13 +107,13 @@ typedef struct {
   // for freq
   int *dst_;
   long last_;
-} sPWMIN;
-sPWMIN PWMIN[PWMIN_MAX];
+} _PWMIN;
+_PWMIN PWMIN[PWMIN_MAX];
 // PWM interrupt handler
 void _pwmin_isr(void *arg) {
   long tnow = micros();
   int id = (int)arg;
-  sPWMIN *pwm = &PWMIN[id];
+  _PWMIN *pwm = &PWMIN[id];
   int vnow = digitalRead(pwm->pin);
   if (pwm->prev==0 && vnow==1) {
     // at up edge
@@ -134,7 +135,7 @@ void _pwmin_isr(void *arg) {
 void _pwmin_tsr(void) {
   long tnow = micros();
   for (int id=0; id<PWMIN_IDS; id++) {
-    sPWMIN *pwm = &PWMIN[id];
+    _PWMIN *pwm = &PWMIN[id];
     if (pwm->last + pwm->tout < tnow) {
       *(pwm->dst) = 0;
       *(pwm->dst_) = 0;
@@ -145,7 +146,7 @@ void _pwmin_tsr(void) {
 void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
   if (PWMIN_IDS < PWMIN_MAX) {
     int id = PWMIN_IDS;
-    sPWMIN *pwm = &PWMIN[id];
+    _PWMIN *pwm = &PWMIN[id];
     pwm->pin = pin;
     pwm->dst = usec;
     pwm->prev = 0;
@@ -166,7 +167,7 @@ void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
 
 
 //////////////////////////////////////////////////
-// Power source 5Vin watcher
+// Watch power source 5Vin and halt 
 //////////////////////////////////////////////////
 void _axp_halt(){
   Wire1.beginTransmission(0x34);
@@ -196,7 +197,7 @@ void vin_watch() {
 
 
 //////////////////////////////////////////////////
-// LCD helpers
+// LCD buffering functions
 //////////////////////////////////////////////////
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 //
@@ -232,7 +233,7 @@ bool canvas_footer(char *text) {
 
 
 //////////////////////////////////////////////////
-// Ring buffer to store and draw sampled values
+// Ring buffer to store and draw data
 //////////////////////////////////////////////////
 // ring buffer
 const int RING_MAX = 4;
@@ -242,8 +243,8 @@ typedef struct {
   int head;
   char *text;
   int color;
-} sRING;
-sRING RING[RING_MAX];
+} _RING;
+_RING RING[RING_MAX];
 
 // data storage
 const int DATA_MSEC = 100; // sampling pediod
@@ -536,6 +537,7 @@ void serverLoop() {
 }
 
 void setup_by_WiFi() {
+  //
   //WIFI_SERVER.begin();
   //
   if (canvas_header("WIFI",0)) {
@@ -562,6 +564,7 @@ void setup_by_WiFi() {
   }
   //
   //WIFI_SERVER.end();
+  //
 }
 
 
@@ -765,10 +768,10 @@ float IMU_ACCEL[3];
 
 // PID loop
 void loopPID() {
-  int ch1_usec;
-  float yrate;
   float Kg = (CONFIG[_KG]/1.0);
- 
+  float yrate;
+  int ch1_usec;
+   
   // Input IMU
   M5.MPU6886.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
   M5.MPU6886.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
