@@ -203,9 +203,11 @@ PID制御における目標値r、出力値yおよび操作量uとRCカー（Pla
 両者の偏差eをゼロに近づけるフィードバック制御により、サーボへのCH1出力uを自動調整します。
 
 - 偏差: e = r - y = ch1_in - Kg*wz
-- 操作量: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
+- 操作量v1: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
+- 操作量v2: u = PID(e) = Kp * (e) + Ki * INT(e) + Kd * DOT(e)
 
 LPFは積分演算を模擬する「Low Pass Filter」の略称、HPFは微分演算を模擬する「High Pass Filter」の略称です。
+INTは積分演算子、DOTは微分演算子を意味します。
 
 フィードバック制御の結果、グリップ走行時はニュートラルステアに近い回頭性、ドリフト走行時はヨーレートの安定性を期待できます。
 
