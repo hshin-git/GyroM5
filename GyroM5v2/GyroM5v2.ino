@@ -33,7 +33,6 @@ const int CH1_IN = 26;
 const int CH3_IN = 36;
 const int CH1_OUT = 0;
 
-
 // PWM parameters
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
@@ -91,7 +90,7 @@ void ch1_output(int usec) {
 
 
 //////////////////////////////////////////////////
-// Read PWM pulse by interruption: insted of pulseIn()
+// PWM pulse reading without blocking, insted of pulseIn()
 //////////////////////////////////////////////////
 // PWM watch dog timer
 Ticker PWMIN_WDT;
@@ -102,16 +101,16 @@ typedef struct {
   int pin;
   int *dst;
   int prev;
-  long last;
+  unsigned long last;
   int tout;
   // for freq
-  int *dst_;
-  long last_;
+  int *dstFreq;
+  unsigned long lastFreq;
 } _PWMIN;
 _PWMIN PWMIN[PWMIN_MAX];
 // PWM interrupt handler
 void _pwmin_isr(void *arg) {
-  long tnow = micros();
+  unsigned long tnow = micros();
   int id = (int)arg;
   _PWMIN *pwm = &PWMIN[id];
   int vnow = digitalRead(pwm->pin);
@@ -120,8 +119,8 @@ void _pwmin_isr(void *arg) {
     pwm->prev = 1;
     pwm->last = tnow;
     // for freq
-    *(pwm->dst_) = (tnow > pwm->last_? 1000000/(tnow - pwm->last_) :0);
-    pwm->last_ = tnow;
+    *(pwm->dstFreq) = (tnow > pwm->lastFreq? 1000000/(tnow - pwm->lastFreq): 0);
+    pwm->lastFreq = tnow;
   }
   else
   if (pwm->prev==1 && vnow==0) {
@@ -133,17 +132,17 @@ void _pwmin_isr(void *arg) {
 }
 // PWM timer handler
 void _pwmin_tsr(void) {
-  long tnow = micros();
+  unsigned long tnow = micros();
   for (int id=0; id<PWMIN_IDS; id++) {
     _PWMIN *pwm = &PWMIN[id];
     if (pwm->last + pwm->tout < tnow) {
       *(pwm->dst) = 0;
-      *(pwm->dst_) = 0;
+      *(pwm->dstFreq) = 0;
     }
   }
 }
 //
-void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
+bool pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
   if (PWMIN_IDS < PWMIN_MAX) {
     int id = PWMIN_IDS;
     _PWMIN *pwm = &PWMIN[id];
@@ -153,15 +152,17 @@ void pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
     pwm->last = micros();
     pwm->tout = toutMs * 1000;
     // for freq
-    pwm->dst_ = freq;
-    pwm->last_ = micros();
+    pwm->dstFreq = freq;
+    pwm->lastFreq = micros();
     //
     pinMode(pin,INPUT);
     attachInterruptArg(pin,_pwmin_isr,(void*)id,CHANGE);
     PWMIN_WDT.attach_ms(toutMs,_pwmin_tsr);
     //
     PWMIN_IDS = id + 1;
+    return true;
   }
+  return false;
 }
 
 
@@ -181,7 +182,7 @@ void _axp_halt(){
   Wire1.endTransmission();
 }
 void vin_watch() {
-  static long lastTime = 0;
+  static unsigned long lastTime = 0;
   float vin = M5.Axp.GetVinData()*1.7 /1000;
   float usb = M5.Axp.GetVusbinData()*1.7 /1000;
   //Serial.printf("vin,usb = %f,%f\n",vin,usb);
@@ -207,7 +208,7 @@ void canvas_init(void) {
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
 bool canvas_header(char *text, int msec) {
-  static long lastTime = 0;
+  static unsigned long lastTime = 0;
   if (lastTime + msec < millis()) {
     M5.Rtc.GetTime(&RTC_TIME);
     canvas.fillScreen(LCD_BACK);
@@ -331,7 +332,7 @@ void data_dump_csv(WiFiClient *cl) {
   }
 }
 bool data_sample(int msec) {
-  static long lastTime = 0;
+  static unsigned long lastTime = 0;
   if (lastTime + msec < millis()) {
     lastTime = millis();
     return true;
@@ -479,7 +480,8 @@ void serverLoop() {
             sprintf(HTML_BUFFER,HTML_TEMPLATE, WIFI_SSID,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],0);
             client.println(HTML_BUFFER);
             break;
-          } else if (currentLine.indexOf("GET /?") == 0) {
+          } else
+          if (currentLine.indexOf("GET /?") == 0) {
             int p1 = 0;
             int p2 = 0;
             int val = 0;
@@ -514,7 +516,8 @@ void serverLoop() {
             client.println(HTML_BUFFER);
             configAccepted = true;
             break;
-          } else if (currentLine.indexOf("GET /csv") == 0) {
+          } else
+          if (currentLine.indexOf("GET /csv") == 0) {
             // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/csv; charset=utf-8;");
@@ -660,7 +663,7 @@ float ACCEL_MEAN[3];
 
 // Frequency counter
 int getFrequency(bool getOnly = false) {
-  static long lastTime = 0;
+  static unsigned long lastTime = 0;
   static int count = 0;
   static int freq = 50;
   if (!getOnly) count = count + 1;
@@ -673,7 +676,7 @@ int getFrequency(bool getOnly = false) {
 }
 
 void call_calibration(void) {
-  long startTime;
+  unsigned long startTime;
   // wait
   while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) {
     vin_watch();
@@ -823,7 +826,7 @@ void setupPID(bool init=false) {
 
 // test for timing
 bool timePID(int msec) {
-  static long lastTime = 0;
+  static unsigned long lastTime = 0;
   if (lastTime + msec < millis()) {
     lastTime = millis();
     return true;
