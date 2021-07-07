@@ -90,7 +90,7 @@ void ch1_output(int usec) {
 
 
 //////////////////////////////////////////////////
-// PWM pulse reading without blocking, insted of pulseIn()
+// PWM pulse reading in non-blocking, insted of pulseIn()
 //////////////////////////////////////////////////
 // PWM watch dog timer
 Ticker PWMIN_WDT;
@@ -99,6 +99,7 @@ const int PWMIN_MAX = 4;
 int PWMIN_IDS = 0;
 typedef struct {
   int pin;
+  // for pulse
   int *dst;
   int prev;
   unsigned long last;
