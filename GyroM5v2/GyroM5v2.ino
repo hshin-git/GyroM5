@@ -2,10 +2,10 @@
 // GyroM5v2 - M5StickC project:
 //   Steering assisting unit for RC drift car
 // New Features from GyroM5v1:
-//   Parameter setting by WiFi AP and WWW server
+//   Parameter setting by WiFi AP
 //   Variable PWM frequency output
 //   Continuous time PID controller
-//   Automatic detection of vertical
+//   Automatic detection of vertical axis
 // URL:
 //   https://github.com/hshin-git/GyroM5
 //////////////////////////////////////////////////
@@ -14,16 +14,16 @@
 #include <WiFiAP.h>
 #include <WiFiClient.h>
 #include <Preferences.h>
-#include <Ticker.h>
 #include <QuickPID.h>
+#include <Ticker.h>
 
 
 //////////////////////////////////////////////////
 // Global constants
 //////////////////////////////////////////////////
 // WiFi parameters
-const char *WIFI_SSID = "GyroM5";
-const char *WIFI_PASS = "";
+const char WIFI_SSID[] = "GyroM5";
+const char WIFI_PASS[] = "";
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
@@ -40,8 +40,7 @@ const int PWM_CH2 = 1;
 const int PWM_BITS = 16;
 const int PWM_DMAX = (1<<PWM_BITS);
 const int PWM_WAIT = 21*1000;
-
-// PWM pulse width
+//
 const int PULSE_MIN = 1000;
 const int PULSE_MAX = 2000;
 const int PULSE_AMP = (PULSE_MAX-PULSE_MIN)/2;
@@ -52,25 +51,24 @@ const int GAIN_MAX = 100;
 const int GAIN_AMP = 120;
 
 // LCD parameters
-const int LCD_LEVEL = 8;  // brightness 7-15
+const int LCD_BACK = 8;   // brightness 7-15
 const int LCD_MSEC = 500; // update in msec
-const int LCD_BACK = TFT_BLACK;
-const int LCD_FORE = TFT_WHITE;
+const int BG_COLOR = TFT_BLACK;
+const int FG_COLOR = TFT_WHITE;
+
+// delay after button (msec)
+const int BTN_MSEC = 300;
 
 // RTC
 RTC_DateTypeDef RTC_DATE;
 RTC_TimeTypeDef RTC_TIME;
 
-// delay after button (msec)
-const int BTN_DELAY = 300;
-
 
 
 
 //////////////////////////////////////////////////
-// For variable PWM frequency
+// PWM output frequency
 //////////////////////////////////////////////////
-// PWM variables
 int PWM_FREQ = 50;
 int PWM_USEC = 1000000/PWM_FREQ;
 //
@@ -79,8 +77,8 @@ void ch1_setFreq(int freq) {
   PWM_FREQ = freq;
   PWM_USEC = 1000000/PWM_FREQ;
   ledcSetup(PWM_CH1,PWM_FREQ,PWM_BITS);
-  ledcAttachPin(CH1_OUT,PWM_CH1);
   ledcWrite(PWM_CH1,0);
+  ledcAttachPin(CH1_OUT,PWM_CH1);
 }
 void ch1_output(int usec) {
   int duty = map(usec, 0,PWM_USEC, 0,PWM_DMAX);
@@ -90,7 +88,7 @@ void ch1_output(int usec) {
 
 
 //////////////////////////////////////////////////
-// PWM pulse reading in non-blocking, insted of pulseIn()
+// PWM input by interrupt
 //////////////////////////////////////////////////
 // PWM watch dog timer
 Ticker PWMIN_WDT;
@@ -169,42 +167,12 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutMs=21) {
 
 
 //////////////////////////////////////////////////
-// Watch power source 5Vin and halt 
-//////////////////////////////////////////////////
-void _axp_halt(){
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.endTransmission();
-  Wire1.requestFrom(0x34, 1);
-  uint8_t buf = Wire1.read();
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.write(buf | 0x80); // halt bit
-  Wire1.endTransmission();
-}
-void vin_watch() {
-  static unsigned long lastTime = 0;
-  float vin = M5.Axp.GetVinData()*1.7 /1000;
-  float usb = M5.Axp.GetVusbinData()*1.7 /1000;
-  //Serial.printf("vin,usb = %f,%f\n",vin,usb);
-  if ( vin < 3.0 && usb < 3.0 ) {
-    if ( lastTime + 3*1000 < millis() ) {
-      _axp_halt();
-    }
-  } else {
-    lastTime = millis();
-  }
-}
-
-
-
-//////////////////////////////////////////////////
-// LCD buffering functions
+// LCD helpers
 //////////////////////////////////////////////////
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 //
 void canvas_init(void) {
-  M5.Axp.ScreenBreath(LCD_LEVEL);
+  M5.Axp.ScreenBreath(LCD_BACK);
   M5.Lcd.setRotation(0);
   canvas.createSprite(M5.Lcd.width(),M5.Lcd.height());
 }
@@ -212,12 +180,12 @@ bool canvas_header(char *text, int msec) {
   static unsigned long lastTime = 0;
   if (lastTime + msec < millis()) {
     M5.Rtc.GetTime(&RTC_TIME);
-    canvas.fillScreen(LCD_BACK);
+    canvas.fillScreen(BG_COLOR);
     canvas.setCursor(0,0);
-    canvas.setTextColor(LCD_BACK,LCD_FORE);
+    canvas.setTextColor(BG_COLOR,FG_COLOR);
     //canvas.printf(" %-12s\n",text);
     canvas.printf(" %-6s %02d:%02d\n",text,RTC_TIME.Hours,RTC_TIME.Minutes);
-    canvas.setTextColor(LCD_FORE,LCD_BACK);
+    canvas.setTextColor(FG_COLOR,BG_COLOR);
     lastTime = millis();
     return true;
   }
@@ -225,17 +193,17 @@ bool canvas_header(char *text, int msec) {
 }
 bool canvas_footer(char *text) {
   M5.Rtc.GetData(&RTC_DATE);
-  canvas.setTextColor(LCD_BACK,LCD_FORE);
+  canvas.setTextColor(BG_COLOR,FG_COLOR);
   //canvas.printf(" %-12s\n",text);
   canvas.printf(" %-6s %02d/%02d\n",text,RTC_DATE.Month,RTC_DATE.Date);
-  canvas.setTextColor(LCD_FORE,LCD_BACK);
+  canvas.setTextColor(FG_COLOR,BG_COLOR);
   canvas.pushSprite(0,0);
 }
 
 
 
 //////////////////////////////////////////////////
-// Ring buffer to store and draw data
+// Ring buffer to store and draw sampled values
 //////////////////////////////////////////////////
 // ring buffer
 const int RING_MAX = 4;
@@ -278,8 +246,8 @@ void data_put(int id, int val) {
 }
 void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, int height=80) {
   int N = DATA_SIZE;
-  int PAST = past<=0? N: min(N,past);
-  
+  int PAST = (past>0? min(N,past): N);
+    
   for (int id=0; id<RING_IDS; id++) {
     int *A = RING[id].buff;
     int p = RING[id].head;
@@ -302,7 +270,7 @@ void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, i
       canvas.setCursor(8*(3*id+1),top);
       canvas.setTextColor(color);
       canvas.printf("%3s",txt);
-      canvas.setTextColor(LCD_FORE);
+      canvas.setTextColor(FG_COLOR);
       // reset cursor in ad-hoc manner
       canvas.setCursor(0,8*lastLine);
     }
@@ -310,9 +278,9 @@ void data_draw(int past, int lastLine=9, int top=80, int left=0, int width=80, i
 }
 void data_grid(int v, int top=80, int left=0, int width=80, int height=80) {
   int y = map(v, -PULSE_AMP,PULSE_AMP, top+height,top);
-  canvas.drawLine(left,y, left+width,y,LCD_FORE);
+  canvas.drawLine(left,y, left+width,y,FG_COLOR);
 }
-void data_dump_csv(WiFiClient *cl) {
+void data_dump(WiFiClient *cl) {
   int N = DATA_SIZE;
   int p = RING[0].head;
   // head
@@ -345,7 +313,7 @@ float data_MAE(int id1, int id2, int past=0) {
   int *A1 = RING[id1].buff;
   int *A2 = RING[id2].buff;
   int p = RING[id1].head;
-  int PAST = past<=0? N: min(N,past);
+  int PAST = (past>0? min(N,past): N);
   float MAE = 0.0;
   p = (p-PAST+N)%N;
   for (int n=0; n<PAST; n++) {
@@ -359,7 +327,7 @@ float data_RMSE(int id1, int id2, int past=0) {
   int *A1 = RING[id1].buff;
   int *A2 = RING[id2].buff;
   int p = RING[id1].head;
-  int PAST = past<=0? N: min(N,past);
+  int PAST = (past>0? min(N,past): N);
   float MSE = 0.0;
   p = (p-PAST+N)%N;
   for (int n=0; n<PAST; n++) {
@@ -372,43 +340,70 @@ float data_RMSE(int id1, int id2, int past=0) {
 
 
 //////////////////////////////////////////////////
-// GyroM5 configuration parameters
+// 5Vin watcher
+//////////////////////////////////////////////////
+void _axp_halt(){
+  Wire1.beginTransmission(0x34);
+  Wire1.write(0x32);
+  Wire1.endTransmission();
+  Wire1.requestFrom(0x34, 1);
+  uint8_t buf = Wire1.read();
+  Wire1.beginTransmission(0x34);
+  Wire1.write(0x32);
+  Wire1.write(buf | 0x80); // halt bit
+  Wire1.endTransmission();
+}
+void vin_watch() {
+  static unsigned long lastTime = 0;
+  float vin = M5.Axp.GetVinData()*1.7 /1000;
+  float usb = M5.Axp.GetVusbinData()*1.7 /1000;
+  //Serial.printf("vin,usb = %f,%f\n",vin,usb);
+  if ( vin < 3.0 && usb < 3.0 ) {
+    if ( lastTime + 5*1000 < millis() ) {
+      _axp_halt();
+    }
+  } else {
+    lastTime = millis();
+  }
+}
+
+
+
+//////////////////////////////////////////////////
+// Parameter config by WiFi
 //////////////////////////////////////////////////
 Preferences STORAGE;
-const char *CONF_NAME = "GYROM5";
-const char *CONF_KEY = "CONF";
+const char CONFIG_NAME[] = "GYROM5";
+const char CONFIG_KEY[] = "CONF";
 
 // GyroM5 parameters
+const char *KEYS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
+const int _INIT_[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
 int CONFIG[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-const int CONF_INIT[] = {50,50,20,5, 0,0,50, 1000,2000, 12345,};
-const char *CONF_VARS[] = {"KG","KP","KI","KD", "CH1","CH3","PWM", "MIN","MAX", "END",};
-enum CONF_INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
-const int CONF_SIZE = sizeof(CONFIG)/sizeof(int);
-const int CONF_TAIL = 3; // number of items after "PWM"
+enum _INDEX {_KG=0,_KP,_KI,_KD, _CH1,_CH3,_PWM, _MIN,_MAX, _END,};
+const int SIZE = sizeof(CONFIG)/sizeof(int);
+const int TAIL = 3; // number of items after "PWM"
 
 // storage read/write
 void config_init() {
-  STORAGE.begin(CONF_NAME);
-  STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
-  if (CONFIG[_END] != CONF_INIT[_END]) { // the first time
-    STORAGE.putBytes(CONF_KEY, &CONF_INIT, sizeof(CONFIG));
-    STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.begin(CONFIG_NAME);
+  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  if (CONFIG[_END] != _INIT_[_END]) { // the first time
+    STORAGE.putBytes(CONFIG_KEY, &_INIT_, sizeof(CONFIG));
+    STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
   }
 }
 void config_puts() {
-  STORAGE.putBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.putBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
 }
 void config_gets() {
-  STORAGE.getBytes(CONF_KEY, &CONFIG, sizeof(CONFIG));
+  STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
 }
 
 
 
-//////////////////////////////////////////////////
-// Parameter setting by WiFi and WWW server
-//////////////////////////////////////////////////
 // HTML template
-const char *HTML_TEMPLATE = R"(
+const char HTML_TEMPLATE[] = R"(
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -457,7 +452,7 @@ window.onload = onLoad();
 void setupPID(bool);
 
 // HTML buffer
-char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*CONF_SIZE];
+char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
 
 // Web server for config
 bool configAccepted = false;
@@ -487,8 +482,8 @@ void serverLoop() {
             int p2 = 0;
             int val = 0;
             // set CONFIG
-            for (int n=0; n<(CONF_SIZE-CONF_TAIL); n++) {
-              String key = CONF_VARS[n];
+            for (int n=0; n<(SIZE-TAIL); n++) {
+              String key = KEYS[n];
               key = key + "=";
               p1 = currentLine.indexOf(key, p2) + key.length();
               p2 = currentLine.indexOf('&', p1);
@@ -524,10 +519,11 @@ void serverLoop() {
             client.println("Content-type:text/csv; charset=utf-8;");
             client.println("Content-Disposition:attachment; filename=data.csv");
             client.println();
-            data_dump_csv(&client);
+            data_dump(&client);
             client.println();
             break;
-          } else {
+          } else 
+          {
             currentLine = "";
           }
         } else if (c != '\r') {
@@ -540,8 +536,7 @@ void serverLoop() {
   }
 }
 
-void setup_by_WiFi() {
-  //
+void setup_by_wifi() {
   //WIFI_SERVER.begin();
   //
   if (canvas_header("WIFI",0)) {
@@ -554,7 +549,7 @@ void setup_by_WiFi() {
     sprintf(url,"http://%d.%d.%d.%d/",((WIFI_IP>>0)&0xff),((WIFI_IP>>8)&0xff),((WIFI_IP>>16)&0xff),((WIFI_IP>>24)&0xff));
     M5.Lcd.qrcode(url,0,80,80,2);
   }
-  delay(BTN_DELAY);
+  delay(BTN_MSEC);
   //
   configAccepted = false;
   while (!configAccepted) {
@@ -562,21 +557,20 @@ void setup_by_WiFi() {
     vin_watch();
     M5.update();
     if (M5.BtnA.isPressed()) {
-      delay(BTN_DELAY);
+      delay(BTN_MSEC);
       return;
     }
   }
   //
   //WIFI_SERVER.end();
-  //
 }
 
 
-// setup for ch1 end points
-void setup_CH1Ends() {
+// config for ch1 end points
+void setup_ch1ends() {
   int ch1,val;
   for (int n=0; n<2; n++) {
-    delay(BTN_DELAY);
+    delay(BTN_MSEC);
     while (true) {
       ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
       val = map(ch1, 0,PWM_USEC, 0,PWM_DMAX);
@@ -595,11 +589,10 @@ void setup_CH1Ends() {
       if (M5.BtnA.isPressed()) {
         if (ch1>0) CONFIG[(n? _MAX: _MIN)] = ch1;
         break;
-      }
-      else
+      } else
       if (M5.BtnB.isPressed()) {
         ch1_output(0);
-        delay(BTN_DELAY);
+        delay(BTN_MSEC);
         return;
       }
     } 
@@ -614,7 +607,7 @@ void setup_CH1Ends() {
     config_puts();
   }
   ch1_output(0);
-  delay(BTN_DELAY);
+  delay(BTN_MSEC);
 }
 
 
@@ -678,44 +671,56 @@ int getFrequency(bool getOnly = false) {
 
 void call_calibration(void) {
   unsigned long startTime;
+  int count;
   // wait
   while (pulseIn(CH1_IN,HIGH,PWM_WAIT)==0) {
     vin_watch();
-    if (canvas_header("CONF", LCD_MSEC)) {
-      for (int n=0; n<CONF_SIZE-1; n++) canvas.printf(" %s:%6d\n",CONF_VARS[n],CONFIG[n]);
-      canvas_footer("CONF");
+    if (canvas_header("WAIT", LCD_MSEC)) {
+      for (int n=0; n<SIZE-1; n++) canvas.printf(" %s:%6d\n",KEYS[n],CONFIG[n]);
+      canvas_footer("WAIT");
     }
   }
   // zero
+  CH1US_MEAN = 0.0;
+  for (int i=0; i<3; i++) OMEGA_MEAN[i] = ACCEL_MEAN[i] = 0.0;
+  // mean
   startTime = millis();
+  count = 0; 
   for (int n=0; true; n++) {
     float omega[3],accel[3];
     int ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
     int fHz = getFrequency();
-    M5.MPU6886.getGyroData(&omega[0],&omega[1],&omega[2]);
-    M5.MPU6886.getAccelData(&accel[0],&accel[1],&accel[2]);
-    CH1US_MEAN = (n==0? ch1: (CH1US_MEAN + ch1)/2.);
+    M5.IMU.getGyroData(&omega[0],&omega[1],&omega[2]);
+    M5.IMU.getAccelData(&accel[0],&accel[1],&accel[2]);
+    //
+    CH1US_MEAN += ch1;
     for (int i=0; i<3; i++) {
-      OMEGA_MEAN[i] = (n==0? omega[i]: (OMEGA_MEAN[i] + omega[i])/2.);
-      ACCEL_MEAN[i] = (n==0? accel[i]: (ACCEL_MEAN[i] + accel[i])/2.);
+      OMEGA_MEAN[i] += omega[i];
+      ACCEL_MEAN[i] += accel[i];
     }
+    count = count + 1;
     //
     if (canvas_header("INIT", LCD_MSEC)) {
-      canvas.println("PWM (Hz)");
-      canvas.printf( " F:%8d\n",fHz);
-      canvas.println("CH1 (us)");
-      canvas.printf( " D:%8.2f\n",CH1US_MEAN);
-      canvas.println("OMEGA (rad/s)");
-      canvas.printf( " X:%8.2f\n",OMEGA_MEAN[0]);
-      canvas.printf( " Y:%8.2f\n",OMEGA_MEAN[1]);
-      canvas.printf( " Z:%8.2f\n",OMEGA_MEAN[2]);
+      canvas.println("CH1");
+      canvas.printf( " HZ:%7d\n",fHz);
+      canvas.printf( " US:%7.2f\n",CH1US_MEAN/count);
+      canvas.println("OMEGA (o/s)");
+      canvas.printf( " X:%8.2f\n",OMEGA_MEAN[0]/count);
+      canvas.printf( " Y:%8.2f\n",OMEGA_MEAN[1]/count);
+      canvas.printf( " Z:%8.2f\n",OMEGA_MEAN[2]/count);
       canvas.println("ACCEL (G)");
-      canvas.printf( " X:%8.2f\n",ACCEL_MEAN[0]);
-      canvas.printf( " Y:%8.2f\n",ACCEL_MEAN[1]);
-      canvas.printf( " Z:%8.2f\n",ACCEL_MEAN[2]);
+      canvas.printf( " X:%8.2f\n",ACCEL_MEAN[0]/count);
+      canvas.printf( " Y:%8.2f\n",ACCEL_MEAN[1]/count);
+      canvas.printf( " Z:%8.2f\n",ACCEL_MEAN[2]/count);
       canvas_footer("INIT");
     }
     if (startTime + 5*1000 < millis()) break;
+  }
+  //
+  CH1US_MEAN = CH1US_MEAN/count;
+  for (int i=0; i<3; i++) {
+    OMEGA_MEAN[i] = OMEGA_MEAN[i]/count;
+    ACCEL_MEAN[i] = ACCEL_MEAN[i]/count;
   }
 }
 
@@ -724,7 +729,7 @@ float getYawRate(float *omega) {
   float wz0 = (omega[0]-OMEGA_MEAN[0])*ACCEL_MEAN[0];
   float wz1 = (omega[1]-OMEGA_MEAN[1])*ACCEL_MEAN[1];
   float wz2 = (omega[2]-OMEGA_MEAN[2])*ACCEL_MEAN[2];
-  return (wz0 + wz1 + wz2) * M5.MPU6886.gRes;
+  return (wz0 + wz1 + wz2);
 }
 // vertical accel := (a,z)
 float getVerticalG(float *accel) {
@@ -772,15 +777,15 @@ float IMU_ACCEL[3];
 
 // PID loop
 void loopPID() {
-  float Kg = (CONFIG[_KG]/1.0);
-  float yrate;
   int ch1_usec;
-   
+  float yrate;
+  float Kg = (CONFIG[_KG]/10.0);
+ 
   // Input IMU
-  M5.MPU6886.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
-  M5.MPU6886.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
+  M5.IMU.getGyroData(&IMU_OMEGA[0],&IMU_OMEGA[1],&IMU_OMEGA[2]);
+  M5.IMU.getAccelData(&IMU_ACCEL[0],&IMU_ACCEL[1],&IMU_ACCEL[2]);
 
-  // IMU to yaw rate
+  //
   Kg = CONFIG[_CH1]? -Kg: Kg;
   yrate = getYawRate(IMU_OMEGA);
   
@@ -799,7 +804,7 @@ void loopPID() {
 //hw_timer_t *timerPID = NULL;
 
 // PID setup
-void setupPID(bool init=false) {
+void setupPID(bool resetPID=false) {
   float Kp = (CONFIG[_KP]/50.);
   float Ki = (CONFIG[_KI]/100.);
   float Kd = (CONFIG[_KD]/5000.);
@@ -809,7 +814,7 @@ void setupPID(bool init=false) {
   myPID.SetTunings(Kp,Ki,Kd);
   myPID.SetOutputLimits(Min,Max);
   
-  if (init) {
+  if (resetPID) {
     int CycleInUs = 1000000/CONFIG[_PWM];
     //int CycleInUs = 1000000/getFrequency(true);
     myPID.SetSampleTimeUs(CycleInUs);
@@ -825,7 +830,7 @@ void setupPID(bool init=false) {
   }
 }
 
-// test for timing
+//
 bool timePID(int msec) {
   static unsigned long lastTime = 0;
   if (lastTime + msec < millis()) {
@@ -843,7 +848,7 @@ bool timePID(int msec) {
 void setup() {
   // (1) Initialize M5StickC object
   M5.begin();
-  M5.MPU6886.Init();
+  M5.IMU.Init();
   //while (!setCpuFrequencyMhz(80));  
 
   // (2) Initialize configuration
@@ -860,7 +865,7 @@ void setup() {
 
   // (4) WiFi AP setting
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
-  delay(BTN_DELAY);
+  delay(BTN_MSEC);
   WiFi.softAPConfig(WIFI_IP, WIFI_IP, WIFI_SUBNET);
   IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
@@ -901,63 +906,64 @@ void loop() {
   }
 
   // Monitor variables in every 500msec
-  if (canvas_header("HOME", LCD_MSEC)) {
+  if (canvas_header("HOME",LCD_MSEC)) {
     int lastData = 8*1000/DATA_MSEC;
+    int lastLine = 1;
     int ch3_gain;    
     // RCV monitor
-    canvas.println("RCV (us)");
-    canvas.printf( " CH1:%6d\n", CH1_USEC);
-    //canvas.printf( " CH2:%6d\n", CH2_USEC);
-    canvas.printf( " CH3:%6d\n", CH3_USEC);
+    //canvas.println("RCV (us)"); lastLine++;
+    //canvas.printf( " CH1:%6d\n", CH1_USEC); lastLine++;
+    //canvas.printf( " CH2:%6d\n", CH2_USEC); lastLine++;
+    //canvas.printf( " CH3:%6d\n", CH3_USEC); lastLine++;
     // PWM monitor
-    canvas.println("PWM (Hz)");
-    canvas.printf( " IN :%6d\n", CH1_FREQ);
-    canvas.printf( " OUT:%6d\n", PWM_FREQ);
+    canvas.println("PWM (Hz)"); lastLine++;
+    canvas.printf( " IN :%6d\n", CH1_FREQ); lastLine++;
+    canvas.printf( " OUT:%6d\n", PWM_FREQ); lastLine++;
     // IMU monitor
-    //canvas.println("OMEGA (rad/s)");
-    //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]*M5.MPU6886.gRes);
-    //canvas.printf( " Y:%8.2f\n", IMU_OMEGA[1]*M5.MPU6886.gRes);
-    //canvas.printf( " Z:%8.2f\n", IMU_OMEGA[2]*M5.MPU6886.gRes);
-    //canvas.println("ACCEL (G)");
-    //canvas.printf( " X:%8.2f\n", IMU_ACCEL[0]);
-    //canvas.printf( " Y:%8.2f\n", IMU_ACCEL[1]);
-    //canvas.printf( " Z:%8.2f\n", IMU_ACCEL[2]);
+    //canvas.println("OMEGA (rad/s)"); lastLine++;
+    //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]); lastLine++;
+    //canvas.printf( " Y:%8.2f\n", IMU_OMEGA[1]); lastLine++;
+    //canvas.printf( " Z:%8.2f\n", IMU_OMEGA[2]); lastLine++;
+    //canvas.println("ACCEL (G)"); lastLine++;
+    //canvas.printf( " X:%8.2f\n", IMU_ACCEL[0]); lastLine++;
+    //canvas.printf( " Y:%8.2f\n", IMU_ACCEL[1]); lastLine++;
+    //canvas.printf( " Z:%8.2f\n", IMU_ACCEL[2]); lastLine++;
     // PID monitor
-    //canvas.println("PID (0-100)");
-    //canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]);
-    //canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]);
-    // ERR monitor
-    canvas.println("PID (us)");
-    canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,lastData));
-    //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,lastData));
+    canvas.println("PID"); lastLine++;
+    canvas.printf( " G/P:%3d/%3d\n", CONFIG[_KG],CONFIG[_KP]); lastLine++;
+    canvas.printf( " I/D:%3d/%3d\n", CONFIG[_KI],CONFIG[_KD]); lastLine++;
+    canvas.printf( " MAE:%6.1f\n", data_MAE(0,2,lastData)); lastLine++;
+    //canvas.printf( "RMSE:%6.1f\n", data_RMSE(0,2,lastData)); lastLine++;
     // RGB graph
     data_grid(0);
     data_grid(CONFIG[_MIN]-CH1US_MEAN);
     data_grid(CONFIG[_MAX]-CH1US_MEAN);
-    data_draw(lastData);
+    data_draw(lastData,lastLine);
     // LCD draw
     canvas_footer("HOME");
     
-    // CH3 => CONFIG
+    // CH3 >> CONFIG
     //CH3_USEC = pulseIn(CH3_IN,HIGH,PWM_WAIT);
-    ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -GAIN_AMP,GAIN_AMP);
-    ch3_gain = constrain(ch3_gain, GAIN_MIN,GAIN_MAX);
-    switch (CONFIG[_CH3]) {
-      case 1: CONFIG[_KG] = ch3_gain; break;
-      case 2: CONFIG[_KP] = ch3_gain; break;
-      case 3: CONFIG[_KI] = ch3_gain; break;
-      case 4: CONFIG[_KD] = ch3_gain; break;
-      case 5: CONFIG[_KG] = 50; CONFIG[_KG] = CONFIG[_KI] = CONFIG[_KD] = 0; break;
-      default: break;
+    if (CH3_USEC > 0) {
+      ch3_gain = map(CH3_USEC, PULSE_MIN,PULSE_MAX, -GAIN_AMP,GAIN_AMP);
+      ch3_gain = constrain(ch3_gain, GAIN_MIN,GAIN_MAX);
+      switch (CONFIG[_CH3]) {
+        case 1: CONFIG[_KG] = ch3_gain; break;
+        case 2: CONFIG[_KP] = ch3_gain; break;
+        case 3: CONFIG[_KI] = ch3_gain; break;
+        case 4: CONFIG[_KD] = ch3_gain; break;
+        case 5: CONFIG[_KG] = 50; CONFIG[_KG] = CONFIG[_KI] = CONFIG[_KD] = 0; break;
+        default: break;
+      }
     }
-    // QuickPID <= CONFIG
+    // CONFIG >> QuickPID
     setupPID();    
   }
 
   // Watch vin and buttons
   vin_watch();
   M5.update();
-  if (M5.BtnA.isPressed()) setup_by_WiFi();
+  if (M5.BtnA.isPressed()) setup_by_wifi();
   else
-  if (M5.BtnB.isPressed()) setup_CH1Ends();
+  if (M5.BtnB.isPressed()) setup_ch1ends();
 }
