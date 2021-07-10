@@ -22,7 +22,7 @@
 // Global constants
 //////////////////////////////////////////////////
 // WiFi parameters
-const char WIFI_SSID[] = "GyroM5";
+const char WIFI_SSID[] = "GyroM5v2";
 const char WIFI_PASS[] = "xxxx";
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
@@ -71,6 +71,7 @@ RTC_TimeTypeDef RTC_TIME;
 //////////////////////////////////////////////////
 // PWM output frequency
 //////////////////////////////////////////////////
+// Variable PWM frequency
 int PWM_FREQ = 50;
 int PWM_USEC = 1000000/PWM_FREQ;
 //
@@ -173,6 +174,7 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutUs=21*1000) {
 //////////////////////////////////////////////////
 // LCD helpers
 //////////////////////////////////////////////////
+// Double bufferd LCD
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 //
 void canvas_init(void) {
@@ -209,7 +211,7 @@ void canvas_footer(char *text) {
 //////////////////////////////////////////////////
 // Ring buffer to store and draw sampled values
 //////////////////////////////////////////////////
-// ring buffer
+// Ring buffer
 const int RING_MAX = 4;
 int RING_IDS = 0;
 typedef struct {
@@ -345,7 +347,7 @@ float data_RMSE(int id1, int id2, int lastData=0) {
 
 
 //////////////////////////////////////////////////
-// Power source 5Vin watcher
+// Watch 5Vin for interlocking with RC units
 //////////////////////////////////////////////////
 void _axp_halt(){
   Wire1.beginTransmission(0x34);
@@ -493,9 +495,6 @@ void serverLoop() {
             int val = 0;
             // set CONFIG
             for (int n=0; n<(SIZE-TAIL); n++) {
-              //String key = KEYS[n];
-              //key = key + "=";
-              //p1 = currentLine.indexOf(key, p2) + key.length();
               char key[16];
               sprintf(key,"%s=",KEYS[n]);
               p1 = currentLine.indexOf(key, p2) + strlen(key);
@@ -576,6 +575,7 @@ void setup_by_wifi() {
       delay(GUI_MSEC);
       return;
     }
+    //delay(2);
   }
   //
   //WIFI_SERVER.end();
@@ -674,7 +674,7 @@ float OMEGA_MEAN[3];
 float ACCEL_MEAN[3];
 
 // Frequency counter
-int getFrequency(bool getOnly = false) {
+int countHz(bool getOnly = false) {
   static unsigned long lastTime = 0;
   static int count = 0;
   static int freq = 50;
@@ -707,7 +707,7 @@ void call_calibration(void) {
   for (int n=0; true; n++) {
     float omega[3],accel[3];
     int ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-    int fHz = getFrequency();
+    int fHz = countHz();
     M5.IMU.getGyroData(&omega[0],&omega[1],&omega[2]);
     M5.IMU.getAccelData(&accel[0],&accel[1],&accel[2]);
     //
@@ -834,7 +834,7 @@ void setupPID(bool resetPID=false) {
   
   if (resetPID) {
     int CycleInUs = 1000000/CONFIG[_PWM];
-    //int CycleInUs = 1000000/getFrequency(true);
+    //int CycleInUs = 1000000/countHz(true);
     myPID.SetSampleTimeUs(CycleInUs);
     myPID.SetMode(QuickPID::TIMER);
     //myPID.SetMode(QuickPID::AUTOMATIC);
@@ -849,10 +849,10 @@ void setupPID(bool resetPID=false) {
 }
 
 //
-bool timePID(int msec) {
+bool timePID(int usec) {
   static unsigned long lastTime = 0;
-  if (lastTime + msec < millis()) {
-    lastTime = millis();
+  if (lastTime + usec < micros()) {
+    lastTime = micros();
     return true;
   }
   return false;
@@ -882,10 +882,12 @@ void setup() {
   pwmin_init(CH3_IN,&CH3_USEC,&CH3_FREQ,PWM_WAIT);
 
   // (4) WiFi AP setting
+  WiFi.mode(WIFI_AP);
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
   delay(GUI_MSEC);
   WiFi.softAPConfig(WIFI_IP, WIFI_IP, WIFI_SUBNET);
-  IPAddress myIP = WiFi.softAPIP();
+  WiFi.begin();
+  //IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
 
   // (5) Initialize ring buffer
@@ -911,9 +913,9 @@ void setup() {
 void loop() {
   // Fetch Setpoint/Input and compute Output by PID
   //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  if (timePID(PWM_USEC/1000)) {
+  if (timePID(PWM_USEC)) {
     loopPID();
-    getFrequency();
+    countHz();
   }
   
   // Sample PID variables in every 100msec
@@ -937,7 +939,7 @@ void loop() {
     canvas.println("PWM (Hz)"); lastLine++;
     canvas.printf( " IN :%6d\n", CH1_FREQ); lastLine++;
     canvas.printf( " OUT:%6d\n", PWM_FREQ); lastLine++;
-    canvas.printf( " PID:%6d\n", getFrequency(true)); lastLine++;
+    canvas.printf( " PID:%6d\n", countHz(true)); lastLine++;
     // IMU monitor
     //canvas.println("OMEGA (rad/s)"); lastLine++;
     //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]); lastLine++;
