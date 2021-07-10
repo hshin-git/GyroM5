@@ -23,7 +23,7 @@
 //////////////////////////////////////////////////
 // WiFi parameters
 const char WIFI_SSID[] = "GyroM5";
-const char WIFI_PASS[] = "";
+const char WIFI_PASS[] = "xxxx";
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
@@ -99,11 +99,11 @@ const int PWMIN_MAX = 4;
 int PWMIN_IDS = 0;
 typedef struct {
   int pin;
+  int tout;
   // for pulse
   int *dst;
   int prev;
   unsigned long last;
-  int tout;
   // for freq
   int *dstFreq;
   unsigned long lastFreq;
@@ -147,6 +147,7 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutUs=21*1000) {
   if (PWMIN_IDS < PWMIN_MAX) {
     int id = PWMIN_IDS;
     _PWMIN *pwm = &PWMIN[id];
+    //
     pwm->pin = pin;
     pwm->tout = toutUs;
     // for pulse
@@ -221,7 +222,7 @@ _RING RING[RING_MAX];
 
 // data storage
 const int DATA_MSEC = 100; // sampling cycle in msec
-const int DATA_SIZE = 6*60*(1000/DATA_MSEC); // sampling storage size
+const int DATA_SIZE = 8*60*(1000/DATA_MSEC); // sampling storage size
 //
 int DATA_Setpoint[DATA_SIZE];
 int DATA_Output[DATA_SIZE];
@@ -248,9 +249,9 @@ void data_put(int id, int val) {
   A[p] = val;
   RING[id].head = (p+1)%N;
 }
-void data_draw(int pastData, int lastLine=8, int top=80, int left=0, int width=80, int height=80) {
+void data_draw(int lastData, int lastLine=8, int top=80, int left=0, int width=80, int height=80) {
   int N = DATA_SIZE;
-  int PAST = (pastData>0? min(N,pastData): N);
+  int LAST = (lastData>0? min(N,lastData): N);
     
   for (int id=0; id<RING_IDS; id++) {
     int *A = RING[id].buff;
@@ -258,12 +259,12 @@ void data_draw(int pastData, int lastLine=8, int top=80, int left=0, int width=8
     char *txt = RING[id].text;
     int color = RING[id].color;
     // plot
-    p = (p-PAST+N)%N;
-    for (int n=0; n<PAST-1; n++) {
+    p = (p-LAST+N)%N;
+    for (int n=0; n<LAST-1; n++) {
       int v0 = A[p];
       int v1 = A[(p+1)%N];
-      int x0 = map(n, 0,PAST, 0,width);
-      int x1 = map(n+1, 0,PAST, 0,width);
+      int x0 = map(n, 0,LAST, 0,width);
+      int x1 = map(n+1, 0,LAST, 0,width);
       int y0 = map(v0, -PULSE_AMP,PULSE_AMP, top+height,top);
       int y1 = map(v1, -PULSE_AMP,PULSE_AMP, top+height,top);
       canvas.drawLine(x0,y0,x1,y1,color);
@@ -312,33 +313,33 @@ bool data_sample(int msec) {
   }
   return false;
 }
-float data_MAE(int id1, int id2, int pastData=0) {
+float data_MAE(int id1, int id2, int lastData=0) {
   int N = DATA_SIZE;
   int *A1 = RING[id1].buff;
   int *A2 = RING[id2].buff;
   int p = RING[id1].head;
-  int PAST = (pastData>0? min(N,pastData): N);
+  int LAST = (lastData>0? min(N,lastData): N);
   float MAE = 0.0;
-  p = (p-PAST+N)%N;
-  for (int n=0; n<PAST; n++) {
+  p = (p-LAST+N)%N;
+  for (int n=0; n<LAST; n++) {
     MAE += abs(A1[p]-A2[p]);
     p = (p+1)%N;
   }
-  return MAE/PAST;
+  return MAE/LAST;
 }
-float data_RMSE(int id1, int id2, int pastData=0) {
+float data_RMSE(int id1, int id2, int lastData=0) {
   int N = DATA_SIZE;
   int *A1 = RING[id1].buff;
   int *A2 = RING[id2].buff;
   int p = RING[id1].head;
-  int PAST = (pastData>0? min(N,pastData): N);
+  int LAST = (lastData>0? min(N,lastData): N);
   float MSE = 0.0;
-  p = (p-PAST+N)%N;
-  for (int n=0; n<PAST; n++) {
+  p = (p-LAST+N)%N;
+  for (int n=0; n<LAST; n++) {
     MSE += (A1[p]-A2[p])*(A1[p]-A2[p]);
     p = (p+1)%N;   
   }
-  return sqrt(MSE/PAST);
+  return sqrt(MSE/LAST);
 }
 
 
@@ -503,7 +504,7 @@ void serverLoop() {
               CONFIG[n] = val;
             }
             // set RTC
-            p1 = currentLine.indexOf("JST=",p2) + 4;
+            p1 = currentLine.indexOf("JST=",p2) + strlen("JST=");
             RTC_DATE.Year = currentLine.substring(p1+0,p1+4).toInt();
             RTC_DATE.Month = currentLine.substring(p1+4,p1+6).toInt();
             RTC_DATE.Date = currentLine.substring(p1+6,p1+8).toInt();
@@ -556,7 +557,7 @@ void setup_by_wifi() {
   //
   if (canvas_header("WIFI",0)) {
     char url[32];
-    canvas.println("[A] CANCEL");
+    canvas.println("[A] HOME");
     canvas.println("SSID:"); canvas.printf(" %s\n",WIFI_SSID);
     canvas.println("PASS:"); canvas.printf(" %s\n",WIFI_PASS);
     canvas.println("IP:"); canvas.print(" "); canvas.println(WIFI_IP);
@@ -595,7 +596,7 @@ void setup_ch1ends() {
       if (canvas_header("ENDS",LCD_MSEC)) {
         canvas.println((n? "LEFT": "RIGHT"));
         canvas.printf("[A] SAVE\n");
-        canvas.printf("[B] RETURN\n");
+        canvas.printf("[B] HOME\n");
         canvas.printf(" CH1:%6d\n",ch1);
         canvas.printf(" VAL:%6d\n",val);
         canvas.printf(" |%s| \n",(n? "<<<<    ": "    >>>>"));
@@ -936,7 +937,7 @@ void loop() {
     canvas.println("PWM (Hz)"); lastLine++;
     canvas.printf( " IN :%6d\n", CH1_FREQ); lastLine++;
     canvas.printf( " OUT:%6d\n", PWM_FREQ); lastLine++;
-    canvas.printf( " PID:%6d\n", getFrequency()); lastLine++;
+    canvas.printf( " PID:%6d\n", getFrequency(true)); lastLine++;
     // IMU monitor
     //canvas.println("OMEGA (rad/s)"); lastLine++;
     //canvas.printf( " X:%8.2f\n", IMU_OMEGA[0]); lastLine++;
