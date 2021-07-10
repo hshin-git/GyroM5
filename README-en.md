@@ -75,6 +75,8 @@ The details are as follows.
 ## Wiring
 Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below.
 
+![GyroM5-HWIF](https://user-images.githubusercontent.com/64751855/124673585-0ad43d00-def4-11eb-862d-7a2df4b3ba62.png)
+
 |M5StickC |in/out |RC units |
 |---- |---- |---- |
 |G26  |in | Reciever CH1|
@@ -85,7 +87,7 @@ Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below
 
 An example image of assembled wire harness is as follows.
 
-![WireHarness](https://user-images.githubusercontent.com/64751855/119204830-865b6580-bad1-11eb-9ab6-f055a49f4d88.jpg)
+![GyroM5-WIRE](https://user-images.githubusercontent.com/64751855/124673638-3525fa80-def4-11eb-9dfa-338399628469.png)
 
 Caution:
 Signal levels in M5StickC (3.3v) and RC units (5.0v or more) are generally different.
@@ -116,14 +118,14 @@ One state transits to anothr state at button [A]/[B] or timeout event.
 |WAIT |RC signal |waits for PWM signal from RC receiver|
 |INIT |Timeout |calibrates zero points in CH1 and gyrosensor, dont move RC car|
 |HOME |[A],[B] |displays RC signals, IMU inputs and PID gains|
-|WIFI |[A] |becomes WiFi access point and accepts setting commands|
-|ENDS |[B] |sets CH1 end points|
+|WIFI |[A] |WiFi access point and accepts setting commands|
+|ENDS |[B] |setup CH1 steering end points|
 
 
 GyroM5's web server returns the following page for various setting. 
 In this page, you can setup PID parameters, PWM frequency and so on.
 
-![SettingByWiFi](https://user-images.githubusercontent.com/64751855/124377656-f6bbf000-dce7-11eb-93ab-0ea7cc6a0294.png)
+![GyroM5-WIFI](https://user-images.githubusercontent.com/64751855/124673609-1f183a00-def4-11eb-9541-b423992477c0.png)
 
 
 ## Tuning
