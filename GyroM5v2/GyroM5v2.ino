@@ -22,8 +22,8 @@
 // Global constants
 //////////////////////////////////////////////////
 // WiFi parameters
-const char WIFI_SSID[] = "GyroM5v2";
-const char WIFI_PASS[] = "xxxx";
+const char *WIFI_SSID = "GyroM5v2";
+const char *WIFI_PASS = NULL; // (for WPA2 min 8 char, for open use NULL)
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
@@ -31,16 +31,16 @@ WiFiServer WIFI_SERVER(80);
 // GPIO parameters
 const int CH1_IN = 26;
 const int CH3_IN = 36;
-const int CH1_OUT = 0;
+const int CH1_OUT = 0;  // G0 must be HIGH while booting, so shoud be output pin
 
 // PWM channel
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
 
-// PWM counter specs
-const int PWM_BITS = 16;
+// PWM resolution specs
+const int PWM_BITS = 16;      // 16bit is valid up to 1220.70Hz
 const int PWM_DUTY = (1<<PWM_BITS);
-const int PWM_WAIT = 21*1000;
+const int PWM_WAIT = 21*1000; // one 50Hz cycle plus 1msec
 
 // PWM pulse specs in msec
 const int PULSE_MIN = 1000;
@@ -76,12 +76,16 @@ int PWM_FREQ = 50;
 int PWM_USEC = 1000000/PWM_FREQ;
 //
 void ch1_setFreq(int freq) {
+  static bool firstTime = true;
   if (freq<50 || freq>400) return;
   PWM_FREQ = freq;
   PWM_USEC = 1000000/PWM_FREQ;
+  //
+  if (!firstTime) ledcDetachPin(CH1_OUT);
   ledcSetup(PWM_CH1,PWM_FREQ,PWM_BITS);
   ledcWrite(PWM_CH1,0);
   ledcAttachPin(CH1_OUT,PWM_CH1);
+  firstTime = false;
 }
 void ch1_output(int usec) {
   int duty = map(usec, 0,PWM_USEC, 0,PWM_DUTY);
@@ -432,7 +436,7 @@ const char HTML_TEMPLATE[] = R"(
 <tr><td>CH3</td><td><input type='range' name='CH3' min='0' max='5' step='1' value='0' oninput='onInput(this)' /></td><td><span id='CH3'>0</span></td><td>0:TB, 1:KG, 2:KP, 3:KI, 4:KD, 5:NO</td></tr>
 <tr><td>PWM</td><td><input type='range' name='PWM' min='50' max='400' step='50' value='50' oninput='onInput(this)' /></td><td><span id='PWM'>50</span><td>PWM frequency (Hz)</td></tr>
 </table>
-<input type='hidden' name='JST' value='19991231125959' />
+<input type='hidden' name='JST' value='20001020103030' />
 <input type='submit' value='upload setting' onclick='onSubmit()' />
 <input type='button' value='download data' onclick='window.location=window.location.href.split("?")[0]+"csv";' />
 <input type='button' value='reload setting' onclick='window.location=window.location.href.split("?")[0];' />
@@ -558,7 +562,7 @@ void setup_by_wifi() {
     char url[32];
     canvas.println("[A] HOME");
     canvas.println("SSID:"); canvas.printf(" %s\n",WIFI_SSID);
-    canvas.println("PASS:"); canvas.printf(" %s\n",WIFI_PASS);
+    canvas.println("PASS:"); canvas.printf(" %s\n",(WIFI_PASS==NULL? "": WIFI_PASS));
     canvas.println("IP:"); canvas.print(" "); canvas.println(WIFI_IP);
     canvas_footer("WIFI");
     sprintf(url,"http://%d.%d.%d.%d/",((WIFI_IP>>0)&0xff),((WIFI_IP>>8)&0xff),((WIFI_IP>>16)&0xff),((WIFI_IP>>24)&0xff));
