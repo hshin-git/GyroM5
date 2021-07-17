@@ -23,7 +23,7 @@
 //////////////////////////////////////////////////
 // WiFi parameters
 const char *WIFI_SSID = "GyroM5v2";
-const char *WIFI_PASS = NULL; // (for WPA2 min 8 char, for open use NULL)
+const char *WIFI_PASS = NULL; // (8 char or more for WPA2, NULL for open use)
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
 WiFiServer WIFI_SERVER(80);
@@ -37,7 +37,7 @@ const int CH1_OUT = 0;  // G0 must be HIGH while booting, so shoud be output pin
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
 
-// PWM resolution specs
+// PWM resolution
 const int PWM_BITS = 16;      // 16bit is valid up to 1220.70Hz
 const int PWM_DUTY = (1<<PWM_BITS);
 const int PWM_WAIT = 21*1000; // one 50Hz cycle plus 1msec
@@ -87,7 +87,7 @@ void ch1_setFreq(int freq) {
   ledcAttachPin(CH1_OUT,PWM_CH1);
   firstTime = false;
 }
-void ch1_output(int usec) {
+void ch1_setUsec(int usec) {
   int duty = map(usec, 0,PWM_USEC, 0,PWM_DUTY);
   ledcWrite(PWM_CH1,(usec>0? duty: 0));
 }
@@ -165,14 +165,33 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutUs=21*1000) {
     //
     pinMode(pin,INPUT);
     attachInterruptArg(pin,_pwmin_isr,(void*)id,CHANGE);
-    PWMIN_WDT.attach_ms(toutUs/1000,_pwmin_tsr);
+    if (id==0) PWMIN_WDT.attach_ms(pwm->tout/1000,_pwmin_tsr);
     //
     PWMIN_IDS = id + 1;
     return true;
   }
   return false;
 }
-
+//
+void pwmin_disable(void) {
+  if (PWMIN_IDS > 0) {
+    PWMIN_WDT.detach();    
+    for (int id=0; id<PWMIN_IDS; id++) {
+      _PWMIN *pwm = &PWMIN[id];
+      detachInterrupt(pwm->pin);
+    }
+    delay(GUI_MSEC);
+  }
+}
+void pwmin_enable(void) {
+  if (PWMIN_IDS > 0) {
+    for (int id=0; id<PWMIN_IDS; id++) {
+      _PWMIN *pwm = &PWMIN[id];
+      attachInterruptArg(pwm->pin,_pwmin_isr,(void*)id,CHANGE);
+      if (id==0) PWMIN_WDT.attach_ms(pwm->tout/1000,_pwmin_tsr);
+    }
+  }
+}
 
 
 //////////////////////////////////////////////////
@@ -405,7 +424,10 @@ void config_init() {
   }
 }
 void config_puts() {
+  // timer/interrupt must be disabled during writing Preferences, otherwise ESP32 crashes...
+  pwmin_disable();
   STORAGE.putBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  pwmin_enable();
 }
 void config_gets() {
   STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
@@ -416,6 +438,16 @@ void config_gets() {
 //////////////////////////////////////////////////
 // Parameter config by WiFi
 //////////////////////////////////////////////////
+void wifi_init(void) {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(WIFI_SSID, WIFI_PASS);
+  delay(GUI_MSEC);
+  WiFi.softAPConfig(WIFI_IP, WIFI_IP, WIFI_SUBNET);
+  WiFi.begin();
+  //IPAddress myIP = WiFi.softAPIP();
+  WIFI_SERVER.begin();
+}
+
 // HTML template
 const char HTML_TEMPLATE[] = R"(
 <!DOCTYPE HTML>
@@ -461,12 +493,11 @@ window.onload = onLoad();
 </html>
 )";
 
-
-// foward prototype
-void setupPID(bool);
-
 // HTML buffer
 char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
+
+// foward prototype
+void pid_setup(bool);
 
 // Web server for config
 bool configAccepted = false;
@@ -519,7 +550,7 @@ void serverLoop() {
             // save CONFIG
             config_puts();
             ch1_setFreq(CONFIG[_PWM]);
-            setupPID(true);
+            pid_setup(true);
             // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
@@ -596,7 +627,7 @@ void setup_ch1ends() {
       ch1 = pulseIn(CH1_IN,HIGH,PWM_WAIT);
       val = map(ch1, 0,PWM_USEC, 0,PWM_DUTY);
       //ledcWrite(PWM_CH1,(ch1>0? val: 0));
-      ch1_output(ch1);
+      ch1_setUsec(ch1);
       if (canvas_header("ENDS",LCD_MSEC)) {
         canvas.println((n? "LEFT": "RIGHT"));
         canvas.printf("[A] SAVE\n");
@@ -613,7 +644,7 @@ void setup_ch1ends() {
       } 
       else
       if (M5.BtnB.isPressed()) {
-        ch1_output(0);
+        //ch1_setUsec(0);
         delay(GUI_MSEC);
         return;
       }
@@ -628,7 +659,7 @@ void setup_ch1ends() {
     }
     config_puts();
   }
-  ch1_output(0);
+  //ch1_setUsec(0);
   delay(GUI_MSEC);
 }
 
@@ -691,7 +722,7 @@ int countHz(bool getOnly = false) {
   return freq;
 }
 
-void call_calibration(void) {
+void mean_init(void) {
   unsigned long startTime;
   int count;
   // wait
@@ -782,7 +813,7 @@ float getVibrationalG(float *accel) {
 float Setpoint = 0.0;
 float Input = 0.0;
 float Output = 0.0;
-QuickPID myPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
+QuickPID gyroPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
 
 // PWM input values in usec
 int CH1_USEC = 0;
@@ -797,8 +828,39 @@ int CH3_FREQ = 0;
 float IMU_OMEGA[3];
 float IMU_ACCEL[3];
 
+// PID timer
+//Ticker tickerPID;
+//hw_timer_t *timerPID = NULL;
+
+// PID setup
+void pid_setup(bool resetPID=false) {
+  float Kp = (CONFIG[_KP]/50.);
+  float Ki = (CONFIG[_KI]/250.);
+  float Kd = (CONFIG[_KD]/5000.);
+  int Min = int(CONFIG[_MIN] - CH1US_MEAN);
+  int Max = int(CONFIG[_MAX] - CH1US_MEAN);
+
+  gyroPID.SetTunings(Kp,Ki,Kd);
+  gyroPID.SetOutputLimits(Min,Max);
+  
+  if (resetPID) {
+    int CycleInUs = 1000000/CONFIG[_PWM];
+    //int CycleInUs = 1000000/countHz(true);
+    gyroPID.SetSampleTimeUs(CycleInUs);
+    gyroPID.SetMode(QuickPID::TIMER);
+    //gyroPID.SetMode(QuickPID::AUTOMATIC);
+
+    // PID timer is not working
+    //tickerPID.attach(CycleInUs/1000000.0,pid_update);
+    //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
+    //timerAttachInterrupt(timerPID, pid_update, true);
+    //timerAlarmWrite(timerPID, CycleInUs, true);
+    //timerAlarmEnable(timerPID);
+  }
+}
+
 // PID loop
-void loopPID() {
+void pid_update() {
   int ch1_usec;
   float yrate;
   float Kg = (CONFIG[_KG]/20.0);
@@ -814,46 +876,15 @@ void loopPID() {
   // Compute PID
   Setpoint = CH1_USEC>0? CH1_USEC - CH1US_MEAN: 0.0;
   Input = Kg * yrate;
-  myPID.Compute();
+  gyroPID.Compute();
   ch1_usec = constrain(CH1US_MEAN + Output, CONFIG[_MIN],CONFIG[_MAX]);
   
   // Output PWM
-  ch1_output((CH1_USEC>0? ch1_usec: 0));
-}
-
-// PID timer
-//Ticker tickerPID;
-//hw_timer_t *timerPID = NULL;
-
-// PID setup
-void setupPID(bool resetPID=false) {
-  float Kp = (CONFIG[_KP]/50.);
-  float Ki = (CONFIG[_KI]/250.);
-  float Kd = (CONFIG[_KD]/5000.);
-  int Min = int(CONFIG[_MIN] - CH1US_MEAN);
-  int Max = int(CONFIG[_MAX] - CH1US_MEAN);
-
-  myPID.SetTunings(Kp,Ki,Kd);
-  myPID.SetOutputLimits(Min,Max);
-  
-  if (resetPID) {
-    int CycleInUs = 1000000/CONFIG[_PWM];
-    //int CycleInUs = 1000000/countHz(true);
-    myPID.SetSampleTimeUs(CycleInUs);
-    myPID.SetMode(QuickPID::TIMER);
-    //myPID.SetMode(QuickPID::AUTOMATIC);
-
-    // PID timer is not working
-    //tickerPID.attach(CycleInUs/1000000.0,loopPID);
-    //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
-    //timerAttachInterrupt(timerPID, loopPID, true);
-    //timerAlarmWrite(timerPID, CycleInUs, true);
-    //timerAlarmEnable(timerPID);
-  }
+  ch1_setUsec((CH1_USEC>0? ch1_usec: 0));
 }
 
 //
-bool timePID(int usec) {
+bool pid_timing(int usec) {
   static unsigned long lastTime = 0;
   if (lastTime + usec < micros()) {
     lastTime = micros();
@@ -868,44 +899,38 @@ bool timePID(int usec) {
 // put your setup code here, to run once:
 //////////////////////////////////////////////////
 void setup() {
-  // (1) Initialize M5StickC object
+  // (1) setup M5StickC object
   M5.begin();
   M5.IMU.Init();
   //while (!setCpuFrequencyMhz(80));  
 
-  // (2) Initialize configuration
+  // (2) setup configuration
   canvas_init();
   config_init();
 
-  // (3) Initialize GPIO settings
+  // (3) setup WiFi AP
+  wifi_init();
+
+  // (4) setup GPIO
   pinMode(CH1_IN,INPUT);
   pinMode(CH3_IN,INPUT);
   pinMode(CH1_OUT,OUTPUT);
-  ch1_setFreq(CONFIG[_PWM]);
   pwmin_init(CH1_IN,&CH1_USEC,&CH1_FREQ,PWM_WAIT);
   pwmin_init(CH3_IN,&CH3_USEC,&CH3_FREQ,PWM_WAIT);
-
-  // (4) WiFi AP setting
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(WIFI_SSID, WIFI_PASS);
-  delay(GUI_MSEC);
-  WiFi.softAPConfig(WIFI_IP, WIFI_IP, WIFI_SUBNET);
-  WiFi.begin();
-  //IPAddress myIP = WiFi.softAPIP();
-  WIFI_SERVER.begin();
-
-  // (5) Initialize ring buffer
+  ch1_setFreq(CONFIG[_PWM]);
+  
+  // (5) Initialize Ring buffer
   data_init(DATA_Setpoint,"CH1",TFT_CYAN);
   data_init(DATA_Output,"SRV",TFT_MAGENTA);
   data_init(DATA_Input,"YAW",TFT_YELLOW);
 
-  // (6) Initialize zeros/means
-  call_calibration();
+  // (6) setup Zeros/Means
+  mean_init();
 
-  // (7) Initialize PID
-  setupPID(true);
+  // (7) setup PID
+  pid_setup(true);
 
-  // (8) Initialize others
+  // (8) setup others
   //Serial.begin(115200);
 }
 
@@ -917,8 +942,8 @@ void setup() {
 void loop() {
   // Fetch Setpoint/Input and compute Output by PID
   //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  if (timePID(PWM_USEC)) {
-    loopPID();
+  if (pid_timing(PWM_USEC)) {
+    pid_update();
     countHz();
   }
   
@@ -982,7 +1007,7 @@ void loop() {
       }
     }
     // CONFIG >> QuickPID
-    setupPID();    
+    pid_setup();    
   }
 
   // Watch vin and buttons
