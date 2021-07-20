@@ -174,22 +174,20 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutUs=21*1000) {
 }
 //
 void pwmin_disable(void) {
-  if (PWMIN_IDS > 0) {
-    PWMIN_WDT.detach();    
-    for (int id=0; id<PWMIN_IDS; id++) {
-      _PWMIN *pwm = &PWMIN[id];
-      detachInterrupt(pwm->pin);
-    }
-    delay(GUI_MSEC);
+  if (PWMIN_IDS <= 0) return;
+  PWMIN_WDT.detach();
+  for (int id=0; id<PWMIN_IDS; id++) {
+    _PWMIN *pwm = &PWMIN[id];
+    detachInterrupt(pwm->pin);
   }
+  delay(GUI_MSEC);
 }
 void pwmin_enable(void) {
-  if (PWMIN_IDS > 0) {
-    for (int id=0; id<PWMIN_IDS; id++) {
-      _PWMIN *pwm = &PWMIN[id];
-      attachInterruptArg(pwm->pin,_pwmin_isr,(void*)id,CHANGE);
-      if (id==0) PWMIN_WDT.attach_ms(pwm->tout/1000,_pwmin_tsr);
-    }
+  if (PWMIN_IDS <= 0) return;
+  for (int id=0; id<PWMIN_IDS; id++) {
+    _PWMIN *pwm = &PWMIN[id];
+    attachInterruptArg(pwm->pin,_pwmin_isr,(void*)id,CHANGE);
+    if (id==0) PWMIN_WDT.attach_ms(pwm->tout/1000,_pwmin_tsr);
   }
 }
 
@@ -416,21 +414,31 @@ const int TAIL = 3; // number of items after "PWM"
 
 // storage read/write
 void config_init() {
+  pwmin_disable();
+  //
   STORAGE.begin(CONFIG_NAME);
   STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
   if (CONFIG[_END] != _INIT_[_END]) { // the first time
     STORAGE.putBytes(CONFIG_KEY, &_INIT_, sizeof(CONFIG));
     STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
   }
+  //
+  pwmin_enable();
 }
 void config_puts() {
   // timer/interrupt must be disabled during writing Preferences, otherwise ESP32 crashes...
   pwmin_disable();
+  //
   STORAGE.putBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  //
   pwmin_enable();
 }
 void config_gets() {
+  pwmin_disable();
+  //
   STORAGE.getBytes(CONFIG_KEY, &CONFIG, sizeof(CONFIG));
+  //
+  pwmin_enable();
 }
 
 
@@ -439,6 +447,8 @@ void config_gets() {
 // Parameter config by WiFi
 //////////////////////////////////////////////////
 void wifi_init(void) {
+  pwmin_disable();
+  //
   WiFi.mode(WIFI_AP);
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
   delay(GUI_MSEC);
@@ -446,6 +456,8 @@ void wifi_init(void) {
   WiFi.begin();
   //IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
+  //
+  pwmin_enable();
 }
 
 // HTML template
@@ -497,7 +509,7 @@ window.onload = onLoad();
 char HTML_BUFFER[sizeof(HTML_TEMPLATE)+sizeof(WIFI_SSID)+8*SIZE];
 
 // foward prototype
-void pid_setup(bool);
+void gpid_init(bool);
 
 // Web server for config
 bool configAccepted = false;
@@ -550,7 +562,7 @@ void serverLoop() {
             // save CONFIG
             config_puts();
             ch1_setFreq(CONFIG[_PWM]);
-            pid_setup(true);
+            gpid_init(true);
             // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
@@ -813,7 +825,7 @@ float getVibrationalG(float *accel) {
 float Setpoint = 0.0;
 float Input = 0.0;
 float Output = 0.0;
-QuickPID gyroPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
+QuickPID GyroPID(&Input, &Output, &Setpoint, 1.0,0.0,0.0, QuickPID::DIRECT);
 
 // PWM input values in usec
 int CH1_USEC = 0;
@@ -833,34 +845,34 @@ float IMU_ACCEL[3];
 //hw_timer_t *timerPID = NULL;
 
 // PID setup
-void pid_setup(bool resetPID=false) {
+void gpid_init(bool resetPID=false) {
   float Kp = (CONFIG[_KP]/50.);
   float Ki = (CONFIG[_KI]/250.);
   float Kd = (CONFIG[_KD]/5000.);
   int Min = int(CONFIG[_MIN] - CH1US_MEAN);
   int Max = int(CONFIG[_MAX] - CH1US_MEAN);
 
-  gyroPID.SetTunings(Kp,Ki,Kd);
-  gyroPID.SetOutputLimits(Min,Max);
+  GyroPID.SetTunings(Kp,Ki,Kd);
+  GyroPID.SetOutputLimits(Min,Max);
   
   if (resetPID) {
     int CycleInUs = 1000000/CONFIG[_PWM];
     //int CycleInUs = 1000000/countHz(true);
-    gyroPID.SetSampleTimeUs(CycleInUs);
-    gyroPID.SetMode(QuickPID::TIMER);
-    //gyroPID.SetMode(QuickPID::AUTOMATIC);
+    GyroPID.SetSampleTimeUs(CycleInUs);
+    GyroPID.SetMode(QuickPID::TIMER);
+    //GyroPID.SetMode(QuickPID::AUTOMATIC);
 
     // PID timer is not working
-    //tickerPID.attach(CycleInUs/1000000.0,pid_update);
+    //tickerPID.attach(CycleInUs/1000000.0,gpid_update);
     //timerPID = timerBegin(0, getApbFrequency()/1000000, true);
-    //timerAttachInterrupt(timerPID, pid_update, true);
+    //timerAttachInterrupt(timerPID, gpid_update, true);
     //timerAlarmWrite(timerPID, CycleInUs, true);
     //timerAlarmEnable(timerPID);
   }
 }
 
 // PID loop
-void pid_update() {
+void gpid_update() {
   int ch1_usec;
   float yrate;
   float Kg = (CONFIG[_KG]/20.0);
@@ -876,15 +888,14 @@ void pid_update() {
   // Compute PID
   Setpoint = CH1_USEC>0? CH1_USEC - CH1US_MEAN: 0.0;
   Input = Kg * yrate;
-  gyroPID.Compute();
+  GyroPID.Compute();
   ch1_usec = constrain(CH1US_MEAN + Output, CONFIG[_MIN],CONFIG[_MAX]);
   
   // Output PWM
   ch1_setUsec((CH1_USEC>0? ch1_usec: 0));
 }
-
 //
-bool pid_timing(int usec) {
+bool gpid_timing(int usec) {
   static unsigned long lastTime = 0;
   if (lastTime + usec < micros()) {
     lastTime = micros();
@@ -928,7 +939,7 @@ void setup() {
   mean_init();
 
   // (7) setup PID
-  pid_setup(true);
+  gpid_init(true);
 
   // (8) setup others
   //Serial.begin(115200);
@@ -942,8 +953,8 @@ void setup() {
 void loop() {
   // Fetch Setpoint/Input and compute Output by PID
   //CH1_USEC = pulseIn(CH1_IN,HIGH,PWM_WAIT);
-  if (pid_timing(PWM_USEC)) {
-    pid_update();
+  if (gpid_timing(PWM_USEC)) {
+    gpid_update();
     countHz();
   }
   
@@ -1007,7 +1018,7 @@ void loop() {
       }
     }
     // CONFIG >> QuickPID
-    pid_setup();    
+    gpid_init();    
   }
 
   // Watch vin and buttons
