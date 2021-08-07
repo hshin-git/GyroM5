@@ -75,7 +75,7 @@ The details are as follows.
 ## Wiring
 Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below.
 
-![GyroM5-HWIF](https://user-images.githubusercontent.com/64751855/124673585-0ad43d00-def4-11eb-862d-7a2df4b3ba62.png)
+![GyroM5-hardware](https://user-images.githubusercontent.com/64751855/128596160-57cea8d3-d4de-4b73-8d0f-7e85df9dcbab.png)
 
 |M5StickC |in/out |RC units |
 |---- |---- |---- |
@@ -87,7 +87,7 @@ Wire GyroM5/M5StickC to RC receiver/servo units, as explained in the table below
 
 An example image of assembled wire harness is as follows.
 
-![GyroM5-WIRE](https://user-images.githubusercontent.com/64751855/124673638-3525fa80-def4-11eb-9dfa-338399628469.png)
+![GyroM5-wireharness](https://user-images.githubusercontent.com/64751855/128596101-5880e0f9-746c-4c2b-a70c-1ee10ea8078b.png)
 
 Caution:
 Signal levels in M5StickC (3.3v) and RC units (5.0v or more) are generally different.
@@ -107,7 +107,7 @@ Find hints for trouble-shooting with google search like keyword "m5stickc not tu
 GyroM5 has five states below.
 One state transits to anothr state at button [A]/[B] or timeout event.
 
-![GyroM5v2](https://user-images.githubusercontent.com/64751855/124378834-90869b80-dcee-11eb-9067-8011bbfd12fb.png)
+![GyroM5-state](https://user-images.githubusercontent.com/64751855/128596141-f6c28196-3827-4584-86fa-db1593254b71.png)
 
 - State "HOME" is the home, transits to "WIFI" by [A] and transits to "ENDS" by [B].
 - State other than "HOME" accepts A/B button or returns to "HOME" by timeout.
@@ -125,7 +125,7 @@ One state transits to anothr state at button [A]/[B] or timeout event.
 GyroM5's web server returns the following page for various setting. 
 In this page, you can setup PID parameters, PWM frequency and so on.
 
-![GyroM5-WIFI](https://user-images.githubusercontent.com/64751855/124673609-1f183a00-def4-11eb-9541-b423992477c0.png)
+![GyroM5-wifi-link](https://user-images.githubusercontent.com/64751855/128596121-7f20ad39-d4e7-4f01-a30e-5d913585112c.png)
 
 
 ## Tuning
@@ -147,9 +147,9 @@ The target r, the output y and the control u are as follows.
 GyroM5 attempts to minimize error value e by adjusting control variable u.
 
 - error: e = r - y = ch1_in - Kg*wz
-- control: u = PID(e) = Kp * (e + Ki * LPF(e) + Kd * HPF(e))
+- control: u = PID(e) = Kp * e + Ki * INT(e) + Kd * DOT(e)
 
-LPF (Low Pass Filter) is used for integral operator, HPF (High Pass Filter)  is used for derivative operator.
+INT is time integral operator, DOT is time derivative operator.
 
 
 ### Parameters
@@ -158,21 +158,14 @@ The integer gains (in uppercase) are normalized from -100 to 100, and are relate
 
 - Yaw rate "wz" is in (radian per sec): <br> IMU sensored values in physical units.
 - Input/output "ch1" is in 16bits (0〜64k): <br> Pulse width (0〜20ms=1000ms/50Hz) in 16bit (0〜2^16-1) integer.
-- Observation Gain: Kg = KG/0.5 <br> Larger Kg becomes, smaller yaw rate per steering becomes.
+- Observation Gain: Kg = KG/20.0 <br> Larger Kg becomes, smaller yaw rate per steering becomes.
 - Proportional Gain: Kp = KP/50.0 <br> Larger Kp becomes, more fastly error decreases but may vibrate.
-- Integral Gain: Ki = KI/50.0 <br> Larger Ki becomes, more slowly error decreases, and smaller final error is.
-- Derivative Gain: Kd = KD/50.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
+- Integral Gain: Ki = KI/250.0 <br> Larger Ki becomes, more slowly error decreases, and smaller final error is.
+- Derivative Gain: Kd = KD/5000.0 <br> Larger Kd becomes, more quickly error decreases but may vibrate.
 
 Initial parameters are recommended to set the integer gains "KG=50, KP=60, KI=30, KD=10".
 Special integer gains "KG=KI=KD=0 and KP=50" are as same as the setting "pass throw: u=r". 
 The plus/minus sign of KG is used for normal/reverse operation in steering servo.
-
-
-### Realtime
-GyroM5 is an approximately realtime control system, and its control frequency (cycle) is 50Hz (20ms).
-
-- GyroM5 inputs CH1 in every 20ms cycle, and outputs CH1 within 20ms, but inputs CH3 at 500ms intervals.
-- Since function pluseIn(...) blocks to read PWM, sequential reading both CH1 and CH3 takes over 20ms.
 
 
 ## Testing
