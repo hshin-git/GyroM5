@@ -319,7 +319,7 @@ void data_dump(WiFiClient *cl) {
   }
   // data
   for (int n=0; n<N; n++) {
-    cl->printf("%.2f,", n*DATA_MSEC/1000.0);
+    cl->printf("%.3f,", n*DATA_MSEC/1000.0);
     for (int id=0; id<RING_IDS; id++) {
       int *A = RING[id].buff;
       cl->print(A[p]);
@@ -440,7 +440,18 @@ void config_gets() {
   //
   pwmin_enable();
 }
-
+void config_dump(WiFiClient *cl) {
+  // head
+  for (int n=0; n<SIZE; n++) {
+    cl->print(KEYS[n]);
+    cl->print(n<SIZE-1? ",": "\n");
+  }
+  // data
+  for (int n=0; n<SIZE; n++) {
+    cl->print(CONFIG[n]);
+    cl->print(n<SIZE-1? ",": "\n");
+  }
+}
 
 
 //////////////////////////////////////////////////
@@ -456,6 +467,14 @@ void wifi_init(void) {
   WiFi.begin();
   //IPAddress myIP = WiFi.softAPIP();
   WIFI_SERVER.begin();
+  //
+  pwmin_enable();
+}
+//
+void wifi_quit(void) {
+  pwmin_disable();
+  //
+  WIFI_SERVER.end();
   //
   pwmin_enable();
 }
@@ -529,7 +548,7 @@ void serverLoop() {
             // response for request "/"
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
-            client.println();
+            client.println("");
             sprintf(HTML_BUFFER,HTML_TEMPLATE, WIFI_SSID,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],0);
             client.println(HTML_BUFFER);
             break;
@@ -566,7 +585,7 @@ void serverLoop() {
             // response
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html; charset=utf-8;");
-            client.println();
+            client.println("");
             sprintf(HTML_BUFFER,HTML_TEMPLATE, WIFI_SSID,CONFIG[_KG],CONFIG[_KP],CONFIG[_KI],CONFIG[_KD],CONFIG[_CH1],CONFIG[_CH3],CONFIG[_PWM],1);
             client.println(HTML_BUFFER);
             configAccepted = true;
@@ -577,10 +596,12 @@ void serverLoop() {
             // response for request "/csv"
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/csv; charset=utf-8;");
-            client.println("Content-Disposition:attachment; filename=data.csv");
-            client.println();
+            //client.println("Content-Disposition:attachment; filename=data.csv");
+            client.printf("Content-Disposition:attachment; filename=data-%04d%02d%02d-%02d%02d.csv\n", RTC_DATE.Year,RTC_DATE.Month,RTC_DATE.Date, RTC_TIME.Hours,RTC_TIME.Minutes);
+            client.println("");
+            config_dump(&client);
             data_dump(&client);
-            client.println();
+            client.println("");
             break;
           } 
           else 
