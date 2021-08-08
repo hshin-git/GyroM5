@@ -26,7 +26,7 @@ https://user-images.githubusercontent.com/64751855/117535983-a1d76280-b033-11eb-
 GyroM5 has unique features.
 
 - Feedback control <br> Auto steering to follow target yaw rate by PID control
-- Parameter setting <br> Setting PID control parameters by CH1 signal
+- Parameter setting <br> Setting PID control parameters by smartphone
 - Remote gain tuning <br> Tuning a PID control parameter by CH3 signal
 - End point setting <br> Setting steering end point by CH1 signal
 - IMU calibration <br> Auto calibration of zero points in CH1 and IMU
@@ -56,15 +56,15 @@ The outline of usage is as follows. The details are in next section.
 5. Install GyroM5/M5StickC on your RC car with LCD up.
 
 ## Software setting
-1. Turn on your GyroM5/M5StickC.
-2. Turn on your RC car.
+1. Turn on your RC car.
+2. Wait for GyroM5 HOME state.
 3. Setup steering end point.
 4. Setup initial PID control gains (KG=50, KP=50, KI=30, KD=10).
 5. Run RC car and adjust PID control gains.
 
 ## Daily usage
-1. Turn on your GyroM5/M5StickC.
-2. Turn on your RC car.
+1. Turn on your RC car.
+2. Wait for GyroM5 HOME state.
 3. Run RC car and adjust PID control gains.
 
 
