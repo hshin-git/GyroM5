@@ -9,7 +9,7 @@
 // URL:
 //   https://github.com/hshin-git/GyroM5
 //////////////////////////////////////////////////
-#include <M5StickC.h>
+#include <M5StickCPlus.h>
 #include <WiFi.h>
 #include <WiFiAP.h>
 #include <WiFiClient.h>
@@ -22,7 +22,7 @@
 // Global constants
 //////////////////////////////////////////////////
 // WiFi parameters
-const char *WIFI_SSID = "GyroM5v2";
+const char *WIFI_SSID = "GyroM5v2plus";
 const char *WIFI_PASS = NULL; // (8 char or more for WPA2, NULL for open use)
 const IPAddress WIFI_IP(192,168,5,1);
 const IPAddress WIFI_SUBNET(255,255,255,0);
@@ -173,6 +173,11 @@ bool pwmin_init(int pin, int *usec, int *freq, int toutUs=21*1000) {
   return false;
 }
 //
+bool gpio25_dis_init(){
+  gpio_pulldown_dis(GPIO_NUM_25);
+  gpio_pullup_dis(GPIO_NUM_25);
+}
+//
 void pwmin_disable(void) {
   if (PWMIN_IDS <= 0) return;
   PWMIN_WDT.detach();
@@ -272,7 +277,7 @@ void data_put(int id, int val) {
   A[p] = val;
   RING[id].head = (p+1)%N;
 }
-void data_draw(int lastData, int lastLine=8, int top=80, int left=0, int width=80, int height=80) {
+void data_draw(int lastData, int lastLine=8, int top=120, int left=0, int width=120, int height=120) {
   int N = DATA_SIZE;
   int LAST = (lastData>0? min(N,lastData): N);
     
@@ -304,7 +309,7 @@ void data_draw(int lastData, int lastLine=8, int top=80, int left=0, int width=8
     }
   }
 }
-void data_grid(int v, int top=80, int left=0, int width=80, int height=80) {
+void data_grid(int v, int top=120, int left=0, int width=120, int height=120) {
   int y = map(v, -PULSE_AMP,PULSE_AMP, top+height,top);
   canvas.drawLine(left,y, left+width,y,FG_COLOR);
 }
@@ -370,17 +375,7 @@ float data_RMSE(int id1, int id2, int lastData=0) {
 //////////////////////////////////////////////////
 // Watch 5Vin for interlocking with RC units
 //////////////////////////////////////////////////
-void _axp_halt(){
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.endTransmission();
-  Wire1.requestFrom(0x34, 1);
-  uint8_t buf = Wire1.read();
-  Wire1.beginTransmission(0x34);
-  Wire1.write(0x32);
-  Wire1.write(buf | 0x80); // halt bit
-  Wire1.endTransmission();
-}
+
 void vin_watch() {
   static unsigned long lastTime = 0;
   float vin = M5.Axp.GetVinData()*1.7 /1000;
@@ -388,7 +383,7 @@ void vin_watch() {
   //Serial.printf("vin,usb = %f,%f\n",vin,usb);
   if ( vin < 3.0 && usb < 3.0 ) {
     if ( lastTime + 5*1000 < millis() ) {
-      _axp_halt();
+      M5.Axp.PowerOff();
     }
   } else {
     lastTime = millis();
@@ -630,7 +625,7 @@ void setup_by_wifi() {
     canvas.println("IP:"); canvas.print(" "); canvas.println(WIFI_IP);
     canvas_footer("WIFI");
     sprintf(url,"http://%d.%d.%d.%d/",((WIFI_IP>>0)&0xff),((WIFI_IP>>8)&0xff),((WIFI_IP>>16)&0xff),((WIFI_IP>>24)&0xff));
-    M5.Lcd.qrcode(url,0,80,80,2);
+    M5.Lcd.qrcode(url,0,120,120,2);
   }
   delay(GUI_MSEC);
   //
@@ -950,6 +945,7 @@ void setup() {
   pwmin_init(CH1_IN,&CH1_USEC,&CH1_FREQ,PWM_WAIT);
   pwmin_init(CH3_IN,&CH3_USEC,&CH3_FREQ,PWM_WAIT);
   ch1_setFreq(CONFIG[_PWM]);
+  gpio25_dis_init();
   
   // (5) Initialize Ring buffer
   data_init(DATA_Setpoint,"CH1",TFT_CYAN);
