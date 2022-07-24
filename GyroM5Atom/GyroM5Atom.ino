@@ -3,7 +3,7 @@
 
 
 // GPIO of M5Atom
-const int PWM_PIN[] = {22,19,23,33};
+const int BTM_PIN[] = {22,19,23,33};
 const int GRV_PIN[] = {26,32};
 
 
@@ -30,7 +30,7 @@ float AHRS[3] = {0.0,0.0,0.0};
 SERVER WWW;
 
 
-// CONTROL PARAMETER
+// CONTROL PARAMETERS
 #define CNF_KG  (WWW.CONF.KG/50.0 * 500./180.0) 
 #define CNF_KP  (WWW.CONF.KP/50.0)
 #define CNF_KI  (WWW.CONF.KI/250.0)
@@ -76,8 +76,13 @@ void setup() {
   PID_CH1.setup(CNF_KP,CNF_KI,CNF_KD,CNF_MIN,CNF_MEAN,CNF_MAX,400);
 
   // GPIO
-  PWM_IO.setupIn(PWM_PIN[0]);
-  PWM_IO.setupOut(PWM_PIN[1],CNF_FREQ);
+  #if 1
+  PWM_IO.setupIn(GRV_PIN[0]);
+  PWM_IO.setupOut(GRV_PIN[1],CNF_FREQ);
+  #else
+  PWM_IO.setupIn(BTM_PIN[0]);
+  PWM_IO.setupOut(BTM_PIN[1],CNF_FREQ);
+  #endif
 
 }
 
