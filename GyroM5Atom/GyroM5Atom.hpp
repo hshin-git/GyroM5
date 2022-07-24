@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
-// GyroM5Atomシステムのライブラリ
-// GyroM5Atom system library
-// https://github.com/hshin-git/GyroM5Atom
+// ドリフトRCカー用ジャイロシステムGyroM5Atom
+// GyroM5Atom system for RC drift car
+// https://github.com/hshin-git/GyroM5
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <WiFi.h>
@@ -115,7 +115,7 @@ const char CONFIG::JSON[] = R"(
 'IMU_ROLL':[-90,90,1,0,'deg',2],
 'IMU_RATE':[-360,360,1,0,'deg/sec',2],
 'PID_FREQ':[0,500,1,50,'Hz',2],
-'PID_USEC':[1000,2000,1,1500,'usc',2],
+'PID_USEC':[1000,2000,1,1500,'usec',2],
 }
 )";
 
@@ -159,12 +159,12 @@ class SERVER {
     delay(500); stop();
     //DEBUG.println(CHAR_BUFF);
   }
-  static void handleStop() {
+  static void handleSaveOnly() {
     for (int n = 0; n < server.args(); n++) CONF.setCONF(server.argName(n).c_str(),server.arg(n).toInt());
     CONF.save();
-    sprintf(CHAR_BUFF, HTML_SAVE, CONF.getJSON());
+    sprintf(CHAR_BUFF, HTML_INIT, CONF.getJSON());
     server.send(200, "text/html", CHAR_BUFF);
-    delay(500); stop();
+    //delay(500); stop();
     //DEBUG.println(CHAR_BUFF);
   }
   static void handleJson() {
@@ -212,7 +212,6 @@ public:
       server.on("/", HTTP_GET, handleRoot);
       server.on("/json", HTTP_GET, handleJson);
       server.on("/save", HTTP_GET, handleSave);
-      server.on("/stop", HTTP_GET, handleStop);
       server.onNotFound(handleNotFound);
       server.begin();
       DEBUG.println("HTTP server started");

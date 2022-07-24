@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// ドリフトRCカー用ジャイロシステムGyroM5Atom
+// GyroM5Atom system for RC drift car
+// https://github.com/hshin-git/GyroM5
+////////////////////////////////////////////////////////////////////////////////
+
 #include <M5Atom.h>
 #include "GyroM5Atom.hpp"
 
@@ -30,7 +36,7 @@ float AHRS[3] = {0.0,0.0,0.0};
 SERVER WWW;
 
 
-// CONTROL PARAMETERS
+// SETTING PARAMETERS
 #define CNF_KG  (WWW.CONF.KG/50.0 * 500./180.0) 
 #define CNF_KP  (WWW.CONF.KP/50.0)
 #define CNF_KI  (WWW.CONF.KI/250.0)
@@ -43,7 +49,7 @@ SERVER WWW;
 #define CNF_AXIS  (WWW.CONF.AXIS%2? (1+(WWW.CONF.AXIS-1)/2): -(1+(WWW.CONF.AXIS-1)/2))
 
 
-// MONITOR
+// MONITORING VARIABLES
 float CH1_FREQ = 50;
 float CH1_USEC = 1500;
 float PID_FREQ = 100;
@@ -53,7 +59,8 @@ float IMU_PITCH = 0;
 float IMU_ROLL = 0;
 
 
-void setup() {
+void setup()
+{
  
   // put your setup code here, to run once:
   M5.begin(true,true,false); //Init M5Atom-Matrix(Serial, I2C, LEDs).
@@ -86,7 +93,8 @@ void setup() {
 
 }
 
-void loop() {
+void loop()
+{
 
   // put your main code here, to run repeatedly:
   M5_AHRS.loop(GYRO,ACCL,AHRS);
