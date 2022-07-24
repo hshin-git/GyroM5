@@ -2,7 +2,7 @@
 
 # GyroM5
 
-- GyroM5は、ドリフトRCカーのステアリングジャイロを開発ボード[M5AtomMatrix](https://github.com/m5stack/M5Atom)/[M5StickC](https://github.com/m5stack/M5StickC)で自作するためのオープンソースソフトウェアです。
+- GyroM5は、ドリフトRCカーのステアリングジャイロを開発ボード[M5AtomMatrix](https://github.com/m5stack/M5Atom) / [M5StickC](https://github.com/m5stack/M5StickC)で自作するためのオープンソースソフトウェアです。
 - 本格的なPID制御アルゴリズムの採用により、ステアリングのアシスト機能を高い自由度で設定できます。
 - [M5AtomMatrix](https://github.com/m5stack/M5Atom)にファームウェア[GyroM5Atom.ino](GyroM5Atom/GyroM5Atom.ino)をインストールしてRCユニットと接続すれば完成です。
 - [M5StickC](https://github.com/m5stack/M5StickC)にファームウェア[GyroM5Stick.ino](GyroM5Stick/GyroM5Stick.ino)をインストールしてRCユニットと接続すれば完成です。
