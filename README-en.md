@@ -3,7 +3,7 @@
 # GyroM5
 
 - GyroM5 is an OSS for turning your M5StickC into steering assit gyro of RC drift car.
-- Sketch [GyroM5v2.ino](GyroM5v2/GyroM5v2.ino) installed M5SitckC can stabilize drift driving of your RC car.
+- Sketch [GyroM5Stick.ino](GyroM5Stick/GyroM5Stick.ino) installed M5SitckC can stabilize drift driving of your RC car.
 
 ![GyroM5](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -52,7 +52,7 @@ The outline of usage is as follows. The details are in next section.
 1. Install Arduino IDE on your PC.
 2. Setup Arduino IDE for ESP/M5StickC.
 3. Connect your PC and M5StickC with USB.
-4. Install sketch [GyroM5v2.ino](GyroM5v2/GyroM5v2.ino) on your M5StickC.
+4. Install sketch [GyroM5Stick.ino](GyroM5Stick/GyroM5Stick.ino) on your M5StickC.
 5. Install GyroM5/M5StickC on your RC car with LCD up.
 
 ## Software setting

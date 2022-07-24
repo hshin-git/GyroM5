@@ -4,7 +4,7 @@
 
 - GyroM5は、ドリフトRCカーのステアリングジャイロを開発ボードM5StickCで自作するためのオープンソースソフトウェアです。
 - 本格的なPID制御アルゴリズムの採用により、ステアリングのアシスト機能を高い自由度で設定できます。
-- M5StickCにファームウェア[GyroM5v2.ino](GyroM5v2/GyroM5v2.ino)をインストールしてRCユニットと接続すれば完成です。
+- M5StickCにファームウェア[GyroM5Stick.ino](GyroM5Stick/GyroM5Stick.ino)をインストールしてRCユニットと接続すれば完成です。
 
 ![ラジコン画像](https://user-images.githubusercontent.com/64751855/117384511-1d46f000-af1e-11eb-854e-45ee149e4671.jpg)
 
@@ -60,7 +60,7 @@ RCユニットとの接続方法、M5StickCの起動方法、制御パラメー�
 1. 手持ちのパソコンにArduino IDE（開発環境）をインストールする
 2. Arduino IDEの開発ボード設定をESP32/M5StickC向けに変更する
 3. パソコンとM5StickC開発ボードをUSBケーブルで接続する
-4. ファームウェア[GyroM5v2.ino](GyroM5v2/GyroM5v2.ino)をArduino IDE経由でM5StickCへ書き込む
+4. ファームウェア[GyroM5Stick.ino](GyroM5Stick/GyroM5Stick.ino)をArduino IDE経由でM5StickCへ書き込む
 6. GyroM5（M5StickC）をRCカーに固定（LCD画面が上向き）してRCユニットと接続する
 
 ## 初期設定
@@ -132,7 +132,7 @@ GyroM5プログラムは、5Vin端子でBEC電圧の低下を検出すると電�
 
 ## 画面遷移
 
-[GyroM5v2](GyroM5v2/GyroM5v2.ino)は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
+[GyroM5Stick](GyroM5Stick/GyroM5Stick.ino)は、5種類の画面状態を遷移します。状態遷移は、ボタン[A]、[B]操作及びタイムアウト時に発生します。
 
 ![GyroM5-state](https://user-images.githubusercontent.com/64751855/128596141-f6c28196-3827-4584-86fa-db1593254b71.png)
 
