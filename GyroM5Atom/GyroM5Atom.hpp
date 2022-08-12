@@ -33,6 +33,7 @@ class CONFIG {
   //
 public:
   // setting parameters
+  int MODE;
   int KG;
   int KP;
   int KI;
@@ -41,11 +42,13 @@ public:
   int MIN;
   int MAX;
   int MEAN;
+  int ROLL;
   int FREQ;
   int AXIS;
   int MAGIC;
   //
   void init() {
+    MODE = 0;
     KG = 50;
     KP = 50;
     KI = 10;
@@ -54,6 +57,7 @@ public:
     MIN = 1000;
     MAX = 2000;
     MEAN = 1500;
+    ROLL = 45;
     FREQ = 50;
     AXIS = 1;
     MAGIC = CONFIG_MAGIC;
@@ -78,13 +82,14 @@ public:
   }
   char *getJSON() {
     static char json[1024];
-    sprintf(json, JSON, KG,KP,KI,KD,REV,MIN,MAX,MEAN,FREQ,AXIS);
+    sprintf(json, JSON, MODE,KG,KP,KI,KD,REV,MIN,MAX,MEAN,ROLL,FREQ,AXIS);
     DEBUG.println(json);
     return json;
   }
   void setCONF(const char *key, int val) {
     DEBUG.print(key); DEBUG.print("="); DEBUG.println(val);
-         if (strcmp(key,"KG")==0) KG = val;
+         if (strcmp(key,"MODE")==0) MODE = val;
+    else if (strcmp(key,"KG")==0) KG = val;
     else if (strcmp(key,"KP")==0) KP = val;
     else if (strcmp(key,"KI")==0) KI = val;
     else if (strcmp(key,"KD")==0) KD = val;
@@ -92,6 +97,7 @@ public:
     else if (strcmp(key,"MIN")==0) MIN = val;
     else if (strcmp(key,"MAX")==0) MAX = val;
     else if (strcmp(key,"MEAN")==0) MEAN = val;
+    else if (strcmp(key,"ROLL")==0) ROLL = val;
     else if (strcmp(key,"FREQ")==0) FREQ = val;
     else if (strcmp(key,"AXIS")==0) AXIS = val;
   }
@@ -99,6 +105,7 @@ public:
 };
 const char CONFIG::JSON[] = R"(
 {
+'MODE':[0,1,1,%d,'drift,stunt',0],
 'KG':[0,100,1,%d,'%%',0],
 'KP':[0,100,1,%d,'%%',0],
 'KI':[0,100,1,%d,'%%',0],
@@ -107,6 +114,7 @@ const char CONFIG::JSON[] = R"(
 'MIN':[1000,2000,1,%d,'usec',1],
 'MAX':[1000,2000,1,%d,'usec',1],
 'MEAN':[1000,2000,1,%d,'usec',1],
+'ROLL':[0,90,1,%d,'deg',1],
 'FREQ':[50,400,50,%d,'Hz',0],
 'AXIS':[1,6,1,%d,'1-6',0],
 'CH1_FREQ':[0,400,1,50,'Hz',2],
@@ -114,7 +122,7 @@ const char CONFIG::JSON[] = R"(
 'IMU_PITCH':[-90,90,1,0,'deg',2],
 'IMU_ROLL':[-90,90,1,0,'deg',2],
 'IMU_RATE':[-360,360,1,0,'deg/sec',2],
-'PID_FREQ':[0,500,1,50,'Hz',2],
+'PID_LOOP':[0,500,1,50,'Hz',2],
 'PID_USEC':[1000,2000,1,1500,'usec',2],
 }
 )";
@@ -268,13 +276,7 @@ const char SERVER::HTML_INIT[] = R"(
 <title>GyroM5Atom</title>
 </head>
 <body>
-<h1>GyroM5Atom</h1>
-<ul>
-<li>'select' for selecting a parameter
-<li>'slider' for adjusting the selected parameter
-<li>'min/max <- ch1' for setting endpoints
-<li>'m5atom <- config' for saving parameters
-</ul>
+<p id='ajax_link'><b> GyroM5Atom Parameters </b></p>
 <form action='save' method='get' name='setting'>
 <table>
 <thead><tr><th>select</th><th>name</th><th>value</th><th>slider</th><th>unit</th></tr></thead>
@@ -282,8 +284,10 @@ const char SERVER::HTML_INIT[] = R"(
 </table>
 <br>
 <input type='hidden' name='JST' value='20220630103030' />
-<input type='button' value='min/max <- ch1' onclick='onMinMax()' />
-<input type='submit' value='m5atom <- conf' onclick='onSubmit()' />
+<input type='button' value='MIN/MAX/MEAN <- CH1' onclick='onMinMax()' />
+<input type='button' value='ROLL <- IMU' onclick='onRoll()' />
+<br>
+<input type='submit' value='M5Atom <- Parameters' onclick='onSubmit()' />
 </form>
 </body>
 <script>
@@ -329,6 +333,10 @@ function doAssign(key,val) {
  if (key in CONFIG) document.getElementsByName(key)[0].value = document.getElementById(key).textContent  = val; 
 }
 //
+function setAjaxLink(col) {
+  document.getElementById('ajax_link').style.backgroundColor = col;
+}
+//
 function onChange(radio) {
  for (let key in CONFIG) {
   let range = document.getElementsByName(key)[0];
@@ -347,7 +355,12 @@ function onMinMax() {
   else if (usec < 1500-250) doAssign('MIN',usec);
   else if (usec > 1500+250) doAssign('MAX',usec);
   else doAssign('MEAN',usec);
-
+}
+//
+function onRoll() {
+  let roll = document.getElementById('IMU_ROLL').textContent;
+  if (Math.abs(roll) < 30) return;
+  else doAssign('ROLL',Math.abs(roll));
 }
 //
 function onSubmit() {
@@ -357,19 +370,27 @@ function onSubmit() {
  for (let key in CONFIG) document.getElementsByName(key)[0].disabled = false;
 }
 //
-const PERIOD_MSEC = 500;
+const SECOND = 1000;
 //
 function startAjax() {
  var xhr = new XMLHttpRequest();
  xhr.open('GET','/json');
+ xhr.setRequestHeader('Content-Type','application/json');
  xhr.onload = function() {
   let json = JSON.parse(xhr.response);
-  //console.log(json);
   for (let key in json) doAssign(key,json[key]);
-  setTimeout(startAjax,PERIOD_MSEC);
+  setTimeout(startAjax,SECOND/2);
+  setAjaxLink('lime');
  }
- xhr.setRequestHeader('Content-Type','application/json');
- xhr.timeout = PERIOD_MSEC*2;
+ xhr.ontimeout = function() {
+   setTimeout(startAjax,2*SECOND);
+   setAjaxLink('red');
+ }
+ xhr.onerror = function() {
+   setTimeout(startAjax,2*SECOND);
+   setAjaxLink('red');
+ }
+ xhr.timeout = SECOND;
  xhr.send();
 }
 //
@@ -1142,3 +1163,67 @@ public:
 #endif
 
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// class M5AtomLED{}: LED制御ライブラリ（M5Atom標準ライブラリのバグ回避）
+//  setup(): 初期化
+//  blink(): 点滅
+//  fill(): 全面塗り
+//  setPixcel(): 一点塗り
+////////////////////////////////////////////////////////////////////////////////
+#include <FastLED.h>
+
+class M5AtomLED {
+  CRGB LEDs[25];
+  bool MASK[3][25];
+  TimerMS TIME;
+  int state = 0;
+public:
+  void setup(void) {
+    FastLED.addLeds<WS2812,27,GRB>(LEDs,25);
+    FastLED.setBrightness(20);
+    //
+    for (int p=0; p<25; p++) {
+      int x = p%5;
+      int y = p/5;
+      LEDs[p] = CRGB::Black;
+      MASK[0][p] = (x==2) && (y==2);
+      MASK[2][p] = (x==0) || (x==4) || (y==0) || (y==4);
+      MASK[1][p] = !(MASK[0][p] || MASK[2][p]);
+    }
+    state = 0;
+    //
+    for (int p=0; p<25; p++) {
+      int h = (p*360)/25;
+      LEDs[p] = CHSV(h,255,255);
+    }
+    FastLED.show();
+  }
+  void blink(CRGB c, int msec) {
+    if (TIME.isUp(msec)) {
+      for (int p=0; p<25; p++) LEDs[p] = MASK[state][p]? c: CRGB::Black;
+      FastLED.show();
+      state = (state + 1) % 3;
+    }
+  }
+  void fill(CRGB c, bool show=true) {
+    for (int p=0; p<25; p++) LEDs[p] = c;
+    if (show) FastLED.show();
+  }
+  void setPixel(int p, CRGB c, bool show=true) {
+    LEDs[p%25] = c;
+    if (show) FastLED.show();
+  }
+  void setPixel(int x, int y, CRGB c, bool show=true) {
+    setPixel(x+y*5,c,show);
+  }
+  
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF
+////////////////////////////////////////////////////////////////////////////////
